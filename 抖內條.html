@@ -63,7 +63,7 @@
         const goalName = data[0]["目標名稱"];
         const current = parseInt(data[0]["目前金額"]);
         const goal = parseInt(data[0]["目標金額"]);
-        const percent = Math.min((current / goal) * 100, 100).toFixed(2);
+        const percent = ((current / goal) * 100).toFixed(2);
 
         const label = `🎯 ${goalName}：NT$${current} / NT$${goal}（${percent}%）`;
 
