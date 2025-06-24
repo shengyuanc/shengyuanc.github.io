@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>桃粉進度條</title>
+  <style>
+    body {
+      background: transparent;
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .progress-wrapper {
+      position: relative;
+      width: 600px;
+      height: 40px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    }
+
+    .base-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      background-color: #333333; /* 深灰底色 */
+      z-index: 0;
+    }
+
+    .fill-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 0%;
+      background-color: #c51d79; /* 粉紅色進度條 */
+      z-index: 1;
+      transition: width 0.5s ease;
+    }
+
+    .content-layer {
+      position: relative;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+    }
+
+    .label, .percent, .amount {
+      display: flex;
+      align-items: center;
+      font-weight: bold;
+      font-size: 22px;
+      height: 100%;
+      padding: 0 10px;
+      color: #ffffff; /* 全部字白色 */
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+    }
+
+    .label {
+      width: 40%;
+      justify-content: flex-start;
+    }
+
+    .percent {
+      width: 30%;
+      justify-content: center;
+    }
+
+    .amount {
+      width: 30%;
+      justify-content: flex-end;
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-wrapper">
+    <div class="base-bar"></div>
+    <div class="fill-bar" id="fillBar"></div>
+    <div class="content-layer">
+      <div class="label" id="goalName">載入中...</div>
+      <div class="percent" id="percentText">0%</div>
+      <div class="amount" id="amountText">0 / 0</div>
+    </div>
+  </div>
+
+  <script>
+    const sheetUrl = "https://opensheet.elk.sh/1azxnr3GssBjGuEwAhg7aHp_RyR5vGNqmL-X2GrG5fu4/工作表1";
+
+    async function fetchData() {
+      try {
+        const res = await fetch(sheetUrl);
+        const data = await res.json();
+
+        const goalName = data[0]["目標名稱"];
+        const current = parseInt(data[0]["目前金額"]);
+        const goal = parseInt(data[0]["目標金額"]);
+        const percentRaw = (current / goal) * 100;
+        const percent = Math.min(percentRaw, 100).toFixed(2);
+
+        document.getElementById("fillBar").style.width = percent + "%";
+        document.getElementById("goalName").textContent = goalName;
+        document.getElementById("percentText").textContent = percent + "%";
+        document.getElementById("amountText").textContent = `${current} / ${goal}`;
+      } catch (err) {
+        document.getElementById("goalName").textContent = "讀取錯誤";
+        console.error(err);
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, 10000);
+  </script>
+</body>
+</html>
