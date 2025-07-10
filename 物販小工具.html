@@ -163,7 +163,11 @@
       }
 
       let bonus = 0;
-      if (total >= 1000) {
+      if (total >= 2000) {
+        bonus = 4;
+      } else if (total >= 1600) {
+        bonus = 3;
+      } else if (total >= 1000) {
         bonus = 2;
       } else if (total >= 600) {
         bonus = 1;
