@@ -149,11 +149,33 @@
       "拍立得簽名": 50,
     };
 
+    // 小卡階梯設定（可輕鬆擴充）
+    const bonusTiers = [
+      { threshold: 600, bonus: 1 },
+      { threshold: 1000, bonus: 2 },
+      { threshold: 1600, bonus: 3 },
+      { threshold: 2000, bonus: 4 },
+      { threshold: 2600, bonus: 5 },
+      { threshold: 3000, bonus: 6 },
+    ];
+
     function changeCount(item, delta) {
       counts[item] += delta;
       if (counts[item] < 0) counts[item] = 0;
       document.getElementById(`count-${item}`).innerText = counts[item];
       updateTotal();
+    }
+
+    function getBonus(total) {
+      let bonus = 0;
+      for (let i = 0; i < bonusTiers.length; i++) {
+        if (total >= bonusTiers[i].threshold) {
+          bonus = bonusTiers[i].bonus;
+        } else {
+          break;
+        }
+      }
+      return bonus;
     }
 
     function updateTotal() {
@@ -162,17 +184,7 @@
         total += counts[item] * prices[item];
       }
 
-      let bonus = 0;
-      if (total >= 2000) {
-        bonus = 4;
-      } else if (total >= 1600) {
-        bonus = 3;
-      } else if (total >= 1000) {
-        bonus = 2;
-      } else if (total >= 600) {
-        bonus = 1;
-      }
-
+      const bonus = getBonus(total);
       document.getElementById("result").innerHTML =
         `總金額：${total} 元<br>小卡數量：${bonus} 張`;
     }
