@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>物販結帳工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: "Arial", sans-serif;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+
+    .item-name {
+      flex: 1 1 100%;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .controls button {
+      padding: 5px 10px;
+      font-size: 16px;
+    }
+
+    .count {
+      min-width: 30px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #result {
+      margin-top: 30px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #resetBtn {
+      margin-top: 20px;
+      padding: 10px 15px;
+      background-color: #ff6666;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      width: 100%;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #resetBtn:hover {
+      background-color: #cc4444;
+    }
+
+    @media (max-width: 480px) {
+      .controls button {
+        padding: 5px 8px;
+      }
+
+      .item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .controls {
+        margin-top: 5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>物販結帳工具</h2>
+
+  <div class="item">
+    <div class="item-name">生寫真（200元）</div>
+    <div class="controls">
+      <button onclick="changeCount('生寫真', -1)">－</button>
+      <span class="count" id="count-生寫真">0</span>
+      <button onclick="changeCount('生寫真', 1)">＋</button>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-name">拍立得獨照（300元）</div>
+    <div class="controls">
+      <button onclick="changeCount('拍立得獨照', -1)">－</button>
+      <span class="count" id="count-拍立得獨照">0</span>
+      <button onclick="changeCount('拍立得獨照', 1)">＋</button>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-name">拍立得合照（350元）</div>
+    <div class="controls">
+      <button onclick="changeCount('拍立得合照', -1)">－</button>
+      <span class="count" id="count-拍立得合照">0</span>
+      <button onclick="changeCount('拍立得合照', 1)">＋</button>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-name">拍立得簽名（50元）</div>
+    <div class="controls">
+      <button onclick="changeCount('拍立得簽名', -1)">－</button>
+      <span class="count" id="count-拍立得簽名">0</span>
+      <button onclick="changeCount('拍立得簽名', 1)">＋</button>
+    </div>
+  </div>
+
+  <div id="result">
+    總金額：0 元<br>
+    小卡數量：0 張
+  </div>
+
+  <button id="resetBtn" onclick="resetAll()">重置</button>
+
+  <script>
+    const counts = {
+      "生寫真": 0,
+      "拍立得獨照": 0,
+      "拍立得合照": 0,
+      "拍立得簽名": 0,
+    };
+
+    const prices = {
+      "生寫真": 200,
+      "拍立得獨照": 300,
+      "拍立得合照": 350,
+      "拍立得簽名": 50,
+    };
+
+    function changeCount(item, delta) {
+      counts[item] += delta;
+      if (counts[item] < 0) counts[item] = 0;
+      document.getElementById(`count-${item}`).innerText = counts[item];
+      updateTotal();
+    }
+
+    function updateTotal() {
+      let total = 0;
+      for (let item in counts) {
+        total += counts[item] * prices[item];
+      }
+
+      let bonus = 0;
+      if (total >= 1000) {
+        bonus = 2;
+      } else if (total >= 600) {
+        bonus = 1;
+      }
+
+      document.getElementById("result").innerHTML =
+        `總金額：${total} 元<br>小卡數量：${bonus} 張`;
+    }
+
+    function resetAll() {
+      for (let item in counts) {
+        counts[item] = 0;
+        document.getElementById(`count-${item}`).innerText = 0;
+      }
+      updateTotal();
+    }
+  </script>
+</body>
+</html>
