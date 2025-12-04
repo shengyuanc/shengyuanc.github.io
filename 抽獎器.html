@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS 直播抽獎器 - 簡約版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入可愛圓體字型 -->
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        /* 設定主要字體為圓體 */
+        body { 
+            font-family: 'Zen Maru Gothic', sans-serif; 
+            overflow: hidden; 
+            background-color: transparent; /* OBS 透明背景 */
+        }
+        
+        .font-pop {
+            font-family: 'Mochiy Pop One', sans-serif;
+        }
+
+        /* 主容器外框樣式 - 更加穩重的框 */
+        .main-frame {
+            background: #fff0f5; 
+            border: 6px solid #ffffff; 
+            outline: 6px solid #f9a8d4; 
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        /* 內部面板樣式 */
+        .inner-panel {
+            background: rgba(255, 255, 255, 0.9); 
+            border: 2px solid #fbcfe8;
+            border-radius: 16px;
+        }
+
+        /* 漸層文字 */
+        .gradient-text {
+            color: #db2777; 
+        }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #f9a8d4; border-radius: 10px; }
+
+        /* 簡化後的高亮效果：只有邊框顏色變化 */
+        .new-winner-card {
+            border: 2px solid #ec4899 !important;
+            background: #fff1f2 !important;
+        }
+
+        /* 卡片基礎樣式 */
+        .winner-card {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- 主要容器 -->
+    <div id="main-container" class="w-full max-w-6xl h-[650px] relative main-frame p-6 flex flex-col">
+        
+        <!-- 連線狀態燈 -->
+        <div class="absolute top-6 right-6 flex items-center gap-2 bg-white px-3 py-1 rounded-full text-xs text-pink-500 border border-pink-200 font-bold z-50">
+            <span id="status-dot" class="w-2 h-2 rounded-full bg-red-400"></span>
+            <span id="status-text">連線中...</span>
+        </div>
+
+        <!-- 標題區 -->
+        <div class="text-center mb-4 relative shrink-0">
+            <h1 id="lottery-title" class="font-pop text-4xl text-pink-600 tracking-wider">
+                讀取中...
+            </h1>
+            <div class="mt-2 inline-block bg-white border border-pink-200 px-4 py-1 rounded-full text-gray-600 font-bold text-sm">
+                參與：<span id="candidate-count" class="text-pink-500 mx-1">0</span> 
+                <span class="text-gray-300 mx-1">|</span>
+                抽出：<span id="draw-count" class="text-blue-500 mx-1">0</span> 人
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
+            
+            <!-- 左側：搖獎區 (4等份) -->
+            <div class="col-span-4 h-full flex flex-col">
+                <div id="lottery-box" class="inner-panel w-full flex-1 flex flex-col items-center justify-center relative overflow-hidden bg-white shadow-sm">
+                    
+                    <!-- 顯示區域標題 -->
+                    <div class="absolute top-3 text-pink-300 font-bold text-base font-pop">
+                        正在抽出...
+                    </div>
+
+                    <!-- 滾動名字顯示區 -->
+                    <div id="display-area" class="w-full text-center px-2 relative z-20 h-32 flex items-center justify-center">
+                        <div class="text-gray-400 text-xl font-bold font-pop">
+                            準備中
+                        </div>
+                    </div>
+
+                    <!-- 進度條 -->
+                    <div id="progress-container" class="absolute bottom-0 left-0 w-full h-2 bg-gray-100">
+                        <div id="progress-bar" class="h-full bg-pink-400 w-0 transition-all duration-100"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側：結果名單 (8等份) -->
+            <div class="col-span-8 h-full">
+                <div class="inner-panel w-full h-full p-4 flex flex-col bg-white shadow-sm overflow-hidden">
+                    <div class="flex justify-between items-center mb-2 border-b border-pink-100 pb-2 shrink-0">
+                        <h2 class="text-pink-500 text-xl font-black flex items-center gap-2 font-pop">
+                            👑 中獎名單
+                        </h2>
+                        <!-- 狀態提示 -->
+                        <span id="drawing-status" class="text-xs text-purple-400 font-bold opacity-0 transition-opacity duration-300">正在開獎...</span>
+                    </div>
+                    
+                    <!-- 列表區域 -->
+                    <div id="winners-list" class="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 gap-2 content-start pr-1">
+                        <!-- 這裡會動態插入中獎者 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 紙花特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        // ==========================================
+        // 您的試算表 ID
+        // ==========================================
+        const GOOGLE_SHEET_ID = "113U5VEc7YPP4kv8o5Ek_rBNd4aVlSM1-mRE07XA0Yrg"; 
+        // ==========================================
+
+        let isRolling = false;
+        let lastCheckboxState = false;
+        let allCandidates = [];
+        let pastWinners = new Set();
+        let config = { title: '', drawCount: 1 };
+        let pollInterval = null;
+
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        window.onload = () => { startPolling(); };
+
+        function startPolling() {
+            updateStatus('connecting', '連線中...');
+            fetchData();
+            pollInterval = setInterval(fetchData, 2000); 
+        }
+
+        // ==========================================
+        // 修改重點：改用 JSONP 方式讀取資料
+        // 這可以解決 CORS 跨域錯誤
+        // ==========================================
+        
+        // 1. 定義一個全域函數來接收 Google 的回傳資料
+        window.handleGoogleSheetData = function(json) {
+            if (!json || !json.table) {
+                updateStatus('error', '格式錯誤');
+                return;
+            }
+            processData(json.table);
+            updateStatus('ok', 'OK');
+        };
+
+        // 2. 建立 Script 標籤來發送請求
+        function fetchData() {
+            // 移除舊的 script 標籤 (避免堆積)
+            const oldScript = document.getElementById('gviz_script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'gviz_script';
+            // 關鍵參數：tqx=responseHandler:window.handleGoogleSheetData
+            // 這告訴 Google 不要回傳純文字，而是回傳一段執行我們函數的 JavaScript 代碼
+            script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=responseHandler:window.handleGoogleSheetData`;
+            
+            script.onerror = function() {
+                updateStatus('error', '連線失敗');
+                console.error('Script load error. 請檢查試算表權限是否公開。');
+            };
+
+            document.body.appendChild(script);
+        }
+
+        // 處理資料 (邏輯不變)
+        function processData(tableData) {
+            const rows = tableData.rows;
+            if (!rows || rows.length === 0) return;
+
+            const configRow = rows[0];
+            const newTitle = getValue(configRow, 4) || '快樂抽獎'; 
+            const newDrawCount = parseInt(getValue(configRow, 3)) || 1; 
+            const triggerRaw = getValue(configRow, 2); 
+            const newTrigger = (triggerRaw === true || triggerRaw === 'TRUE' || triggerRaw === 'true');
+
+            if (config.title !== newTitle) {
+                config.title = newTitle;
+                document.getElementById('lottery-title').innerText = newTitle;
+            }
+            if (config.drawCount !== newDrawCount) {
+                config.drawCount = newDrawCount;
+                document.getElementById('draw-count').innerText = newDrawCount;
+            }
+
+            const candidates = [];
+            rows.forEach(row => {
+                const name = getValue(row, 0);
+                const tickets = parseInt(getValue(row, 1)) || 1; 
+                if (name) candidates.push({ name, tickets });
+            });
+            
+            allCandidates = candidates;
+            document.getElementById('candidate-count').innerText = allCandidates.length;
+
+            if (newTrigger === true && lastCheckboxState === false) {
+                if (!isRolling) startLottery();
+            }
+            else if (newTrigger === false && lastCheckboxState === true) {
+                pastWinners.clear();
+                updateWinnersList(); 
+                resetDisplay();
+            }
+            lastCheckboxState = newTrigger;
+        }
+
+        function getValue(row, index) {
+            return (row.c[index] && row.c[index].v !== null) ? row.c[index].v : null;
+        }
+
+        function getSmartFontSize(textLength) {
+            if (textLength <= 2) return 'text-5xl';
+            if (textLength <= 4) return 'text-4xl';
+            if (textLength <= 6) return 'text-3xl';
+            return 'text-2xl';
+        }
+
+        function checkGridColumns() {
+            const listEl = document.getElementById('winners-list');
+            if (pastWinners.size > 5) {
+                listEl.classList.remove('grid-cols-1');
+                listEl.classList.add('grid-cols-2');
+            } else {
+                listEl.classList.add('grid-cols-1');
+                listEl.classList.remove('grid-cols-2');
+            }
+        }
+
+        async function startLottery() {
+            const available = allCandidates.filter(c => !pastWinners.has(c.name));
+            if (available.length === 0) return;
+
+            isRolling = true;
+            document.getElementById('drawing-status').style.opacity = '1'; 
+            
+            let pool = [];
+            available.forEach(c => {
+                for(let i=0; i<c.tickets; i++) pool.push(c.name);
+            });
+
+            const currentWinners = [];
+            let tempPool = [...pool];
+            for (let i = 0; i < config.drawCount; i++) {
+                if (tempPool.length === 0) break;
+                const idx = Math.floor(Math.random() * tempPool.length);
+                const winner = tempPool[idx];
+                currentWinners.push(winner);
+                tempPool = tempPool.filter(n => n !== winner);
+            }
+
+            await runRollingAnimation(pool, 3000);
+            await revealWinnersSequence(currentWinners, pool);
+
+            isRolling = false;
+            document.getElementById('drawing-status').style.opacity = '0';
+            document.getElementById('display-area').innerHTML = `
+                <div class="text-pink-500 text-xl font-bold font-pop">
+                    開獎完成
+                </div>
+            `;
+            document.getElementById('progress-bar').style.width = '100%';
+        }
+
+        function runRollingAnimation(pool, duration) {
+            return new Promise(resolve => {
+                const displayEl = document.getElementById('display-area');
+                const progressBar = document.getElementById('progress-bar');
+                let start = Date.now();
+
+                const animate = () => {
+                    let now = Date.now();
+                    let progress = (now - start) / duration;
+
+                    if (progress < 1) {
+                        const randomName = pool[Math.floor(Math.random() * pool.length)];
+                        const sizeClass = getSmartFontSize(randomName ? randomName.length : 2);
+                        
+                        displayEl.innerHTML = `
+                            <div class="${sizeClass} font-black text-pink-400 font-pop">
+                                ${randomName}
+                            </div>
+                        `;
+                        progressBar.style.width = `${progress * 80}%`; 
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                };
+                animate();
+            });
+        }
+
+        async function revealWinnersSequence(winners, pool) {
+            const displayEl = document.getElementById('display-area');
+
+            for (let i = 0; i < winners.length; i++) {
+                const winner = winners[i];
+                if (i > 0) await runRollingAnimation(pool, 500);
+
+                const sizeClass = getSmartFontSize(winner.length);
+                displayEl.innerHTML = `
+                    <div class="${sizeClass} font-black text-purple-600 font-pop drop-shadow-sm">
+                        ${winner}
+                    </div>
+                `;
+
+                confetti({ 
+                    particleCount: 80, 
+                    spread: 50, 
+                    origin: { x: 0.3, y: 0.6 },
+                    colors: ['#f472b6', '#c084fc', '#facc15']
+                });
+
+                pastWinners.add(winner);
+                addWinnerToDom(winner, true);
+
+                await delay(1500);
+                removeHighlight();
+            }
+        }
+
+        function addWinnerToDom(name, isNew = false) {
+            const listEl = document.getElementById('winners-list');
+            const rank = pastWinners.size; 
+            
+            checkGridColumns();
+
+            const div = document.createElement('div');
+            const bgClass = isNew ? 'new-winner-card' : 'bg-gray-50';
+            const borderClass = isNew ? '' : 'border-gray-100';
+            
+            div.className = `winner-card ${bgClass} p-2 rounded-lg border ${borderClass} flex justify-between items-center animate__animated animate__fadeIn shadow-sm`;
+            
+            // 移除 NEW 標籤，保留數字和姓名
+            div.innerHTML = `
+                <div class="flex items-center gap-2 overflow-hidden w-full">
+                    <div class="w-6 h-6 rounded-full bg-pink-400 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        ${rank}
+                    </div>
+                    <span class="text-gray-700 font-bold text-base font-pop truncate">${name}</span>
+                </div>
+            `;
+
+            // 改用 appendChild 將新中獎者加在最後面 (清單底部)
+            listEl.appendChild(div);
+            
+            // 自動捲動到最底部
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+
+        function updateWinnersList() {
+            const listEl = document.getElementById('winners-list');
+            listEl.innerHTML = '';
+            
+            checkGridColumns();
+
+            let index = 1;
+            const winnersArr = Array.from(pastWinners);
+            
+            winnersArr.forEach((name) => {
+                const div = document.createElement('div');
+                div.className = `bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center shadow-sm`;
+                div.innerHTML = `
+                     <div class="flex items-center gap-2 overflow-hidden w-full">
+                        <div class="w-6 h-6 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-xs shrink-0">
+                            ${index++}
+                        </div>
+                        <span class="text-gray-600 font-bold text-base font-pop truncate">${name}</span>
+                    </div>
+                `;
+                // 改用 appendChild 保持順序 (1號在最上面，新號碼在下面)
+                listEl.appendChild(div);
+            });
+        }
+
+        function removeHighlight() {
+            const cards = document.querySelectorAll('.new-winner-card');
+            cards.forEach(card => {
+                card.classList.remove('new-winner-card');
+                card.classList.add('bg-gray-50', 'border-gray-100');
+            });
+        }
+
+        function resetDisplay() {
+            isRolling = false;
+            document.getElementById('display-area').innerHTML = `
+                <div class="text-gray-400 text-xl font-bold font-pop">
+                    準備中
+                </div>
+            `;
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('drawing-status').style.opacity = '0';
+        }
+
+        function updateStatus(type, msg) {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            text.innerText = msg;
+            
+            dot.className = "w-2 h-2 rounded-full";
+            if (type === 'ok') dot.classList.add("bg-green-400");
+            else if (type === 'error') dot.classList.add("bg-red-500");
+            else dot.classList.add("bg-yellow-400");
+        }
+    </script>
+</body>
+</html>
