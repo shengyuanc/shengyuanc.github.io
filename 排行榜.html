@@ -1,12 +1,10 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OBS 抖內榜單 - 可愛橘粉版</title>
-    <!-- 引入字型：M PLUS Rounded 1c (圓體) 與 Noto Sans TC (黑體 - 手機相容性佳) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- 引入可愛的圓體字型 -->
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -21,8 +19,7 @@
         }
 
         body {
-            /* 預設維持可愛圓體，若不支援則退回 Noto Sans TC */
-            font-family: 'M PLUS Rounded 1c', 'Noto Sans TC', sans-serif;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
             background-color: transparent; /* OBS 用，背景透明 */
             color: var(--text-color);
             overflow: hidden; /* 防止捲軸出現 */
@@ -44,9 +41,7 @@
         .header-title {
             text-align: center;
             font-size: 1.5rem;
-            font-weight: 900; /* 加到最粗，讓手機觀看更清晰 */
-            /* 標題改用 Noto Sans TC 以確保手機顯示正常且清晰 */
-            font-family: 'Noto Sans TC', sans-serif;
+            font-weight: 800;
             color: #fff;
             text-shadow: 2px 2px 0px rgba(255, 140, 144, 1);
             margin-bottom: 15px;
@@ -86,7 +81,7 @@
         /* 前三名特別樣式 */
         .rank-item.top-1 { border-color: var(--rank-1); background: #fffdf0; transform: scale(1.02); }
         .rank-item.top-2 { border-color: var(--rank-2); }
-        .rank-item.top-3 { border-color: var(--rank-2); } /* 修正：第三名原設為 rank-3 但 CSS 有誤，這裡統一 */
+        .rank-item.top-3 { border-color: var(--rank-3); }
 
         .rank-num {
             font-weight: 800;
@@ -156,21 +151,18 @@
 
         const USE_MOCK_DATA = false;
 
-        // [重要] Google Sheet CSV 連結
+        // Google Sheet CSV 連結
         const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1_HqekZK6Yx119AnJEi-Yajfxq-P2Wd29h91kuyp2n24/export?format=csv&gid=1135280746"; 
 
-        // 更新頻率：20000 毫秒 (20秒)
-        const REFRESH_INTERVAL = 20000;
+        // [修改點 1] 更新頻率改為 30000 毫秒 (30秒)
+        const REFRESH_INTERVAL = 30000;
 
-        // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
+        // [修改點 2] 強制啟用代理模式以解決 CORS 問題
+        const USE_PROXY = true;
+
+        // 因為您的 QUERY 公式輸出兩欄：Col1(姓名), Sum(Col2)(總金額)
+        // 所以資料在 CSV 的第 1 欄(索引0) 和 第 2 欄(索引1)
         const COLUMN_OFFSET = 0;
-
-        // 代理服務列表 (解決 CORS 問題)
-        // 系統會依序嘗試，如果第一個失敗就試第二個
-        const PROXY_PROVIDERS = [
-            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-        ];
 
         // =========================================
 
@@ -182,31 +174,6 @@
             { name: "測試乾爹", amount: 1000 },
             { name: "測試乾媽", amount: 500 }
         ];
-
-        // 帶有重試機制的 Fetch 函數
-        async function fetchWithFallback(originalUrl) {
-            let lastError = null;
-
-            for (const createProxyUrl of PROXY_PROVIDERS) {
-                try {
-                    const targetUrl = createProxyUrl(originalUrl);
-                    // console.log("Trying proxy:", targetUrl); // Debug 用
-                    const response = await fetch(targetUrl);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Status ${response.status}`);
-                    }
-                    
-                    return await response.text(); // 成功取得資料直接返回
-                } catch (error) {
-                    // console.warn("Proxy failed, trying next...", error);
-                    lastError = error;
-                    // 繼續下一個迴圈嘗試備用代理
-                }
-            }
-            // 如果全部失敗，拋出最後一個錯誤
-            throw lastError || new Error("All proxies failed");
-        }
 
         async function fetchData() {
             if (USE_MOCK_DATA) {
@@ -220,17 +187,23 @@
             }
 
             try {
-                // 構建目標 URL
+                // [修改點 3] 構建目標 URL
+                // 如果啟用代理，使用 allorigins.win 包裹原始 URL
                 const timestamp = Date.now();
-                const connector = GOOGLE_SHEET_CSV_URL.includes('?') ? '&' : '?';
-                const originalUrlWithTime = `${GOOGLE_SHEET_CSV_URL}${connector}t=${timestamp}`;
+                const originalUrlWithTime = `${GOOGLE_SHEET_CSV_URL}&t=${timestamp}`;
                 
-                // 使用新的重試機制抓取資料
-                const text = await fetchWithFallback(originalUrlWithTime);
+                const targetUrl = USE_PROXY 
+                    ? `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrlWithTime)}`
+                    : originalUrlWithTime;
 
+                const response = await fetch(targetUrl);
+                
+                if (!response.ok) throw new Error("Network response was not ok");
+                
+                const text = await response.text();
                 // 檢查是否抓到錯誤頁面 (HTML)
                 if (text.trim().startsWith("<!DOCTYPE") || text.includes("<html")) {
-                    throw new Error("抓不到 CSV！<br>請確認試算表已執行<br>「檔案>共用>發布到網路」");
+                    throw new Error("抓取到的是網頁而非 CSV，請檢查連結權限或 CORS 狀態");
                 }
                 
                 const data = parseCSV(text);
@@ -242,24 +215,15 @@
 
             } catch (error) {
                 console.error("Error fetching data:", error);
-                
-                // 顯示錯誤訊息在畫面上
+                // 只有在第一次載入失敗時顯示大錯誤，後續靜默失敗保留舊榜單
                 if (listContainer.children.length === 0) {
-                    loadingDiv.innerHTML = `
-                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px;">
-                            ❌ 讀取失敗<br>
-                            <span style='font-size:0.8rem; opacity:0.9; color:#ffdddd;'>
-                                連線不穩，重試中...<br>
-                                (${error.message})
-                            </span>
-                        </div>
-                    `;
+                    loadingDiv.innerHTML = `讀取失敗<br><span style='font-size:0.8rem; opacity:0.8'>${error.message}</span>`;
                     loadingDiv.style.display = 'block';
                 }
             }
         }
 
-        // 升級版 CSV 解析器
+        // 升級版 CSV 解析器：可以處理 "1,500" 這種有千分位逗號的數字
         function parseCSVRow(row) {
             const result = [];
             let start = 0;
@@ -267,9 +231,11 @@
             
             for (let i = 0; i < row.length; i++) {
                 if (row[i] === '"') {
-                    inQuotes = !inQuotes; 
+                    inQuotes = !inQuotes; // 切換引號狀態
                 } else if (row[i] === ',' && !inQuotes) {
+                    // 遇到逗號，且不在引號內 -> 切割欄位
                     let field = row.substring(start, i).trim();
+                    // 移除前後的雙引號
                     if (field.startsWith('"') && field.endsWith('"')) {
                         field = field.substring(1, field.length - 1);
                     }
@@ -277,6 +243,7 @@
                     start = i + 1;
                 }
             }
+            // 處理最後一個欄位
             let lastField = row.substring(start).trim();
             if (lastField.startsWith('"') && lastField.endsWith('"')) {
                 lastField = lastField.substring(1, lastField.length - 1);
@@ -290,16 +257,20 @@
             const lines = text.split('\n').filter(line => line.trim() !== '');
             const result = [];
 
-            // 從第 1 行開始 (跳過標題)
+            // 從第 1 行開始 (跳過標題行 index 0)
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i];
+                
+                // 使用新的解析函數
                 const parts = parseCSVRow(line);
                 
                 const nameIndex = 0 + COLUMN_OFFSET;
                 const amountIndex = 1 + COLUMN_OFFSET;
 
                 if (parts.length > amountIndex) {
-                    const name = parts[nameIndex]; 
+                    const name = parts[nameIndex]; // 名字保留原始格式
+                    
+                    // 去除金額中的非數字字符 ($, 逗號, 雙引號)
                     const rawAmount = parts[amountIndex];
                     const cleanAmount = rawAmount ? rawAmount.replace(/[$,"]/g, '').trim() : "0";
                     const amount = parseFloat(cleanAmount);
@@ -310,12 +281,15 @@
                 }
             }
 
+            // 再次排序確保正確 (雖然您的 QUERY 已經排過序了)
             result.sort((a, b) => b.amount - a.amount);
+
             return result.slice(0, 10);
         }
 
         function renderList(data) {
             loadingDiv.style.display = 'none';
+            // 這裡不直接清空，可以用 Diff 算法優化動畫，但為了簡單先清空
             listContainer.innerHTML = '';
 
             if (data.length === 0) {
