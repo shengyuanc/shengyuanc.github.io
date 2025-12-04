@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可愛風直播跑馬燈</title>
+    <!-- 引入可愛的圓體字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* OBS 背景設定：
+           這設為透明，這樣在 OBS 裡這層網頁背景就是透明的，只看得到跑馬燈條 
+        */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent; 
+            font-family: 'Zen Maru Gothic', sans-serif;
+            overflow: hidden; /* 防止出現捲軸 */
+            height: 100vh;
+            display: flex;
+            align-items: flex-end; /* 預設放在底部，可自行調整 */
+        }
+
+        /* 跑馬燈外框容器 */
+        .ticker-container {
+            width: 100%;
+            /* 橘粉色漸層背景 */
+            background: linear-gradient(90deg, #FF9A9E 0%, #FECFEF 50%, #FF9A9E 100%);
+            border-top: 4px solid #fff; /* 頂部白色邊框 */
+            border-bottom: 4px solid #fff;
+            box-shadow: 0 -4px 15px rgba(255, 105, 180, 0.4); /* 柔和的粉色陰影 */
+            height: 60px; /* 跑馬燈高度 */
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 30px; /* 圓角設計 */
+            margin: 10px; /* 留一點邊距 */
+        }
+
+        /* 裝飾用的小圖示 (左側固定) */
+        .badge {
+            position: absolute;
+            left: 10px;
+            z-index: 10;
+            background: #fff;
+            color: #FF6B6B;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 實際滾動的文字區域 */
+        .scrolling-text {
+            white-space: nowrap;
+            position: absolute;
+            will-change: transform;
+            animation: scroll-left 20s linear infinite; /* 20s 是速度，越小越快 */
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 0px rgba(255, 107, 107, 0.5); /* 文字描邊效果 */
+            display: flex;
+            align-items: center;
+        }
+
+        /* 捲動動畫定義 */
+        @keyframes scroll-left {
+            0% {
+                transform: translateX(100vw); /* 從螢幕最右邊開始 */
+            }
+            100% {
+                transform: translateX(-100%); /* 滾動到文字完全消失在左邊 */
+            }
+        }
+
+        /* 分隔符號樣式 */
+        .separator {
+            margin: 0 20px;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ticker-container">
+        <!-- 左側固定的標題，你可以改成你的名字或 "NEWS" -->
+        <div class="badge">
+            <span>📢</span> 公告
+        </div>
+
+        <!-- 滾動內容 -->
+        <div class="scrolling-text" id="ticker-content">
+            載入中... 🌸 請稍候
+        </div>
+    </div>
+
+    <script>
+        // ================= 設定區 =================
+
+        // 1. 我已幫你將編輯網址轉換為資料讀取網址
+        // ★★★ 重要：請務必將試算表權限設為「知道連結的任何人」皆可檢視 ★★★
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1kaW3o3-LEyDr_Vs-9ykTIxi_-vEz5vn2f_mxK-s1UZo/gviz/tq?tqx=out:csv'; 
+
+        // 2. 如果讀取失敗或網址為空，顯示這些預設訊息
+        const DEFAULT_MESSAGES = [
+            "歡迎來到直播間！記得按讚訂閱喔！",
+            "今天是輕鬆聊天的風格～",
+            "點歌請看指令說明",
+            "感謝大家的收看 (´▽`ʃ♡ƪ)"
+        ];
+
+        // 3. 訊息之間的分隔符號 (可以是表情符號)
+        const SEPARATOR = " 🌸 ";
+
+        // ================= 程式邏輯區 (通常不用改) =================
+
+        async function fetchMessages() {
+            const ticker = document.getElementById('ticker-content');
+            
+            if (!SHEET_CSV_URL) {
+                console.log("未設定 CSV 連結，使用預設訊息");
+                updateTicker(DEFAULT_MESSAGES);
+                return;
+            }
+
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error("網路回應錯誤");
+                
+                const text = await response.text();
+                const messages = parseCSV(text);
+                
+                if (messages.length > 0) {
+                    updateTicker(messages);
+                } else {
+                    updateTicker(DEFAULT_MESSAGES);
+                }
+
+            } catch (error) {
+                console.error("讀取試算表失敗:", error);
+                // 失敗時保持原樣或顯示預設
+                updateTicker(DEFAULT_MESSAGES);
+            }
+        }
+
+        // 簡單的 CSV 解析器 (抓取第一欄)
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const result = [];
+            
+            // 跳過標題列? 如果你的試算表第一行是標題，將 i = 0 改成 i = 1
+            for (let i = 0; i < lines.length; i++) {
+                // 移除前後空白與引號
+                let line = lines[i].trim();
+                // 簡單處理 CSV 引號 (如果有的話)
+                if (line.startsWith('"') && line.endsWith('"')) {
+                    line = line.substring(1, line.length - 1);
+                }
+                
+                if (line) {
+                    result.push(line);
+                }
+            }
+            return result;
+        }
+
+        function updateTicker(messages) {
+            const ticker = document.getElementById('ticker-content');
+            
+            // 將所有訊息串接起來，加上分隔符號
+            // 移除了自動重複的邏輯，現在只會顯示一次
+            let displayContent = messages.join(SEPARATOR);
+            
+            // 加上結尾分隔符號，讓循環看起來更自然
+            ticker.innerText = displayContent;
+            
+            // 根據文字長度動態調整動畫速度 (字越多，需要的時間越長，保持速度一致)
+            // 基礎速度：每 10 個字 1 秒，最少 10 秒
+            const duration = Math.max(10, displayContent.length * 0.3);
+            ticker.style.animationDuration = `${duration}s`;
+        }
+
+        // 啟動！
+        fetchMessages();
+
+        // 選用：每 5 分鐘重新抓取一次資料 (50000 毫秒)
+        setInterval(fetchMessages, 50000);
+
+    </script>
+</body>
+</html>
