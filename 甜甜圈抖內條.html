@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甜甜圈可愛抖內條</title>
+    <!-- 引入可愛的圓體字型 (Fredoka) 用於數字，以及 (Noto Sans TC) 用於中文 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Noto+Sans+TC:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 全域設定 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent; /* OBS 背景透明 */
+            /* 字體設定：英文數字優先用 Fredoka，中文用 Noto Sans TC，最後用系統黑體 */
+            font-family: 'Fredoka', 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- 主容器 --- */
+        .goal-container {
+            position: relative;
+            width: 90%;
+            max-width: 700px;
+            padding: 20px;
+            /* 輕微的白色光暈 */
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+        }
+
+        /* --- 文字資訊區域 --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch; /* 讓左右高度自動拉伸對齊 */
+            margin-bottom: 8px; /* 縮小與進度條的距離 */
+            color: #fff;
+            gap: 10px; /* 標題與金額框之間的間距 */
+        }
+
+        /* --- 通用框框樣式 (標題 & 金額) --- */
+        .info-box {
+            background-color: #ff8b94; /* 改為更深的粉色，增加對比 */
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+            color: #fff;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 20px; /* 強制統一高度 */
+            /* 增加文字陰影，提高清晰度 */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+
+        /* --- 標題特定樣式 --- */
+        .goal-title {
+            font-size: 1.4rem; 
+            /* 移除舊的陰影，使用 .info-box 的統一設定 */
+        }
+
+        /* --- 金額與百分比特定樣式 --- */
+        .goal-amounts-container {
+            font-size: 1.4rem;
+            white-space: nowrap;
+            gap: 2px; /* 縮小內部間距，讓斜線緊湊一點 */
+        }
+
+        /* --- 甜甜圈進度條背景 (麵團顏色) --- */
+        .progress-bar-bg {
+            width: 100%;
+            height: 32px; 
+            background-color: #f4d0a8; /* 麵團色 */
+            border-radius: 16px;
+            border: 4px solid #fff;
+            position: relative;
+            overflow: visible; /* 為了讓甜甜圈凸出來 */
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.1);
+            z-index: 1;
+        }
+
+        /* --- 進度條填充 (草莓糖霜) --- */
+        .progress-fill {
+            height: 100%;
+            width: 0%; /* 初始長度 */
+            background: linear-gradient(180deg, #ffb7b2 0%, #ff9aa2 100%);
+            border-radius: 12px;
+            position: relative;
+            transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+            display: flex;
+            align-items: center;
+            overflow: hidden; /* 隱藏超出的糖霜紋路 */
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* 右側陰影增加厚度感 */
+        }
+
+        /* --- 糖霜流動波浪效果 --- */
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 20px 20px 50% 50% / 20px 20px 10px 10px;
+        }
+
+        /* --- 巧克力米 (Sprinkles) --- */
+        .sprinkles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(#fff4e6 15%, transparent 16%),
+                radial-gradient(#ffd3b6 15%, transparent 16%),
+                radial-gradient(#ffdfba 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px, 5px 15px;
+            opacity: 0.6;
+        }
+
+        /* --- 甜甜圈圖示 (跟著進度條跑) --- */
+        .donut-icon-wrapper {
+            position: absolute;
+            /* 這裡透過 JS 設定 left，但需要 margin-left 來修正中心點 */
+            left: 0; 
+            top: 50%;
+            margin-top: -24px; /* 垂直置中 (高度的一半) */
+            width: 48px; 
+            height: 48px;
+            z-index: 10;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease;
+            
+            /* [修正關鍵] 向左移動寬度的一半，讓甜甜圈中心對齊進度條末端 */
+            margin-left: -24px; 
+            
+            pointer-events: none; 
+        }
+        
+        /* 讓甜甜圈旋轉的動畫 */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .donut-svg {
+            width: 100%;
+            height: 100%;
+            animation: spin 8s linear infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="goal-container">
+        <!-- 標題與金額區域 -->
+        <div class="header">
+            <!-- 標題 -->
+            <div class="info-box goal-title" id="goalName">讀取中...</div>
+            
+            <!-- 金額與百分比 (格式修改) -->
+            <div class="info-box goal-amounts-container">
+                <span id="currentAmount">0</span>
+                <span style="margin: 0 4px;">/</span>
+                <span id="targetAmount">0</span>
+                <span id="goalPercent" style="margin-left: 8px;">(0%)</span>
+            </div>
+        </div>
+
+        <!-- 進度條區域 -->
+        <div class="progress-bar-bg">
+            <div class="progress-fill" id="progressBar">
+                <!-- 巧克力米背景 -->
+                <div class="sprinkles"></div>
+            </div>
+             <!-- 跟隨進度的甜甜圈 -->
+            <div class="donut-icon-wrapper" id="donutIcon">
+                <svg class="donut-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <!-- 定義立體感濾鏡/漸層 -->
+                        <radialGradient id="doughShadow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                            <stop offset="70%" stop-color="#f4d0a8" />
+                            <stop offset="100%" stop-color="#dcb080" />
+                        </radialGradient>
+                        <linearGradient id="frostingShine" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#ffcdd2" />
+                            <stop offset="50%" stop-color="#ff9aa2" />
+                            <stop offset="100%" stop-color="#ff808b" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- 1. 麵團主體 -->
+                    <circle cx="50" cy="50" r="48" fill="url(#doughShadow)" />
+                    
+                    <!-- 2. 糖霜 (粉色 + 立體高光) -->
+                    <path d="M 50 4 
+                             C 20 4, 4 25, 4 50 
+                             C 4 78, 25 96, 50 96 
+                             C 75 96, 96 78, 96 50 
+                             C 96 25, 80 4, 50 4 
+                             Z" 
+                          fill="url(#frostingShine)" stroke="none"/>
+                    
+                    <!-- 3. 修復洞：把洞放在糖霜上面 (覆蓋中間) -->
+                    <!-- 內部麵團色 (現在改為跟進度條背景 #f4d0a8 一樣) -->
+                    <circle cx="50" cy="50" r="16" fill="#f4d0a8" />
+                    <!-- 內部陰影，降低透明度 (0.25 -> 0.1) 讓顏色不那麼深 -->
+                    <circle cx="50" cy="50" r="16" fill="black" opacity="0.1" />
+
+                    <!-- 高光反射 (讓糖霜看起來濕潤) -->
+                    <path d="M 25 25 Q 40 10 60 15" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.6" fill="none"/>
+                    <circle cx="75" cy="30" r="2" fill="white" opacity="0.7"/>
+
+                    <!-- 彩色巧克力米 -->
+                    <g filter="drop-shadow(1px 1px 0px rgba(0,0,0,0.2))">
+                        <rect x="30" y="20" width="8" height="4" fill="#fff" transform="rotate(45 30 20)" rx="2"/>
+                        <rect x="70" y="25" width="8" height="4" fill="#ffeeaa" transform="rotate(-15 70 25)" rx="2"/>
+                        <rect x="25" y="70" width="8" height="4" fill="#fff" transform="rotate(80 25 70)" rx="2"/>
+                        <rect x="65" y="80" width="8" height="4" fill="#ffeeaa" transform="rotate(-10 65 80)" rx="2"/>
+                        <rect x="50" y="10" width="8" height="4" fill="#fff" transform="rotate(0 50 10)" rx="2"/>
+                        <rect x="80" y="50" width="8" height="4" fill="#aaddff" transform="rotate(90 80 50)" rx="2"/>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 設定區
+        const SHEET_ID = '1azxnr3GssBjGuEwAhg7aHp_RyR5vGNqmL-X2GrG5fu4';
+        const SHEET_NAME = '工作表1'; 
+        const REFRESH_INTERVAL = 5000; 
+
+        // 取得 DOM 元素
+        const elGoalName = document.getElementById('goalName');
+        const elCurrent = document.getElementById('currentAmount');
+        const elTarget = document.getElementById('targetAmount');
+        const elPercent = document.getElementById('goalPercent');
+        const elBar = document.getElementById('progressBar');
+        const elDonutIcon = document.getElementById('donutIcon');
+
+        // 定義 Google Sheets 回傳的 callback 函式
+        window.loadSheetData = function(data) {
+            if (!data || !data.table || !data.table.rows || data.table.rows.length === 0) {
+                console.error('資料格式錯誤或無資料');
+                return;
+            }
+
+            // Google Sheets JSONP 回傳的格式是 data.table.rows[0].c[index].v
+            // c[0] = A欄, c[1] = B欄, c[2] = C欄
+            const row = data.table.rows[0];
+            
+            // 安全讀取資料 (如果儲存格為空，給預設值)
+            const name = (row.c[0] && row.c[0].v != null) ? row.c[0].v : '目標';
+            const current = (row.c[1] && row.c[1].v != null) ? parseFloat(row.c[1].v) : 0;
+            const target = (row.c[2] && row.c[2].v != null) ? parseFloat(row.c[2].v) : 0;
+
+            render(name, current, target);
+        };
+
+        function updateData() {
+            // 使用 JSONP 方式讀取資料，可解決本地檔案的跨域問題
+            // tqx=responseHandler:loadSheetData 指定 callback 函式名稱
+            // range=A2:C2 指定讀取的範圍
+            // _=${Date.now()} 加入時間戳記避免瀏覽器快取舊資料
+            const scriptUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:loadSheetData&range=A2:C2&_=${Date.now()}`;
+            
+            // 建立新的 script 標籤
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            
+            // 載入完成後移除標籤，保持 DOM 整潔
+            script.onload = function() {
+                this.remove();
+            };
+            script.onerror = function() {
+                console.error('無法讀取 Google 試算表，請檢查網際網路連線或 ID');
+                this.remove();
+            };
+
+            document.body.appendChild(script);
+        }
+
+        function render(name, current, target) {
+            elGoalName.innerText = name;
+            elCurrent.innerText = current.toLocaleString(); 
+            elTarget.innerText = target.toLocaleString();
+
+            let percentage = 0;
+            if (target > 0) {
+                percentage = (current / target) * 100;
+            }
+            
+            // 更新百分比文字格式： (XX%)
+            elPercent.innerText = `(${Math.floor(percentage)}%)`;
+            
+            let visualPercentage = Math.min(percentage, 100); 
+            visualPercentage = Math.max(visualPercentage, 0); 
+
+            // 更新寬度
+            elBar.style.width = visualPercentage + '%';
+            
+            // 更新甜甜圈位置
+            elDonutIcon.style.left = visualPercentage + '%';
+        }
+
+        // 初始執行
+        updateData();
+
+        // 設定定時器
+        setInterval(updateData, REFRESH_INTERVAL);
+
+    </script>
+</body>
+</html>
