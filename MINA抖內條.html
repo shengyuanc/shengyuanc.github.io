@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Hamster Donation Bar</title>
+    <!-- 引入可愛圓體字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bar-height: 40px;
+            --bar-radius: 20px;
+            --main-pink: #FF9EAA;
+            --dark-pink: #FF708D;
+            --light-pink: #FFF0F5;
+            --text-color: #5D4037;
+            --border-color: #ffffff;
+        }
+
+        body {
+            background-color: transparent; /* OBS 透明背景 */
+            margin: 0;
+            padding: 20px;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* 標題樣式 - 恢復獨立可愛風 */
+        .goal-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-color);
+            
+            /* 分離設定：拉大距離，留空間給倉鼠 */
+            margin-bottom: 10px; 
+            display: inline-block;
+            
+            background: #ffffff; /* 純白背景 */
+            padding: 2px 20px;   /* 上下窄一點點 */
+            
+            /* 恢復粉紅外框 */
+            border: 4px solid var(--main-pink);
+            border-radius: 20px; /* 完整的圓角 */
+            
+            /* 可愛立體陰影 */
+            box-shadow: 2px 3px 0 var(--dark-pink);
+            
+            position: relative;
+            z-index: 5; /* 標題層級較低 */
+        }
+
+        /* 進度條外框 */
+        .progress-container {
+            width: 100%;
+            height: var(--bar-height);
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: var(--bar-radius);
+            border: 4px solid var(--text-color);
+            position: relative;
+            z-index: 10; /* 讓進度條(含倉鼠)層級高於標題，確保倉鼠在最前面 */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            overflow: visible; /* 讓倉鼠可以跑出來 */
+        }
+
+        /* 實際進度條 */
+        .progress-fill {
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--main-pink),
+                var(--main-pink) 10px,
+                var(--dark-pink) 10px,
+                var(--dark-pink) 20px
+            );
+            width: 0%; /* 初始為0，JS會控制 */
+            border-radius: 14px; /* 略小於外框 */
+            transition: width 1s cubic-bezier(0.4, 0.0, 0.2, 1);
+            position: relative;
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.4);
+        }
+
+        /* 數值文字 */
+        .stats-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-color);
+            z-index: 2;
+            /* 強力描邊，確保在條紋上清晰可見 */
+            -webkit-text-stroke: 4px white;
+            paint-order: stroke fill;
+            text-shadow: 2px 2px 0 #fff; /* Fallback */
+        }
+
+        /* 修正 stats-text 內部的 span 顯示層級 */
+        .stats-text span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 倉鼠容器 */
+        .hamster-wrapper {
+            position: absolute;
+            right: -25px; /* 讓倉鼠在進度條前端 */
+            top: -38px;
+            width: 60px;
+            height: 60px;
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+
+        /* 倉鼠上下跳動動畫 */
+        .hamster-svg {
+            width: 100%;
+            height: 100%;
+            animation: bounce 0.6s infinite ease-in-out alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+
+        /* 進度條閃光特效 */
+        .shine {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            border-radius: var(--bar-radius);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* 錯誤訊息顯示 (除錯用) */
+        #error-msg {
+            color: red;
+            background: white;
+            font-size: 12px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 目標名稱 -->
+        <div id="goalName" class="goal-title">載入中...</div>
+        
+        <!-- 進度條本體 -->
+        <div class="progress-container">
+            <div class="progress-fill" id="progressBar">
+                <!-- 倉鼠跟著進度條跑 -->
+                <div class="hamster-wrapper">
+                    <svg class="hamster-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- 身體 -->
+                        <ellipse cx="50" cy="60" rx="35" ry="30" fill="#E6C29F" stroke="#5D4037" stroke-width="3"/>
+                        <!-- 肚子 -->
+                        <ellipse cx="50" cy="65" rx="20" ry="18" fill="#FFF8E7"/>
+                        <!-- 耳朵 -->
+                        <circle cx="25" cy="40" r="10" fill="#E6C29F" stroke="#5D4037" stroke-width="3"/>
+                        <circle cx="75" cy="40" r="10" fill="#E6C29F" stroke="#5D4037" stroke-width="3"/>
+                        <circle cx="25" cy="40" r="5" fill="#FF9EAA"/>
+                        <circle cx="75" cy="40" r="5" fill="#FF9EAA"/>
+                        <!-- 眼睛 -->
+                        <circle cx="40" cy="55" r="4" fill="#333"/>
+                        <circle cx="60" cy="55" r="4" fill="#333"/>
+                        <!-- 腮紅 -->
+                        <ellipse cx="30" cy="65" rx="5" ry="3" fill="#FF9EAA" opacity="0.6"/>
+                        <ellipse cx="70" cy="65" rx="5" ry="3" fill="#FF9EAA" opacity="0.6"/>
+                        <!-- 鼻子 -->
+                        <ellipse cx="50" cy="60" rx="4" ry="3" fill="#FF708D"/>
+                        <!-- 嘴巴 -->
+                        <path d="M46 68 Q50 72 54 68" stroke="#5D4037" stroke-width="2" fill="none"/>
+                        <!-- 手 -->
+                        <ellipse cx="30" cy="75" rx="6" ry="4" fill="#E6C29F" stroke="#5D4037" stroke-width="2"/>
+                        <ellipse cx="70" cy="75" rx="6" ry="4" fill="#E6C29F" stroke="#5D4037" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- 數值顯示 -->
+            <div class="stats-text">
+                <span id="currentAmount">0</span>
+                <span style="margin: 0 5px;">/</span>
+                <span id="targetAmount">0</span>
+                <!-- 新增百分比顯示 -->
+                <span id="percentageText" style="margin-left: 8px;">(0%)</span>
+            </div>
+            
+            <div class="shine"></div>
+        </div>
+        <div id="error-msg"></div>
+    </div>
+
+    <script>
+        // 設定
+        const SHEET_ID = '1iuUWiJtvrN7GUEF2chcgbcH2qKP8dmrJ_YCbOWSJE-U';
+        const GID = '193793461';
+        
+        // -----------------------------------------------------
+        // 修改為 JSONP 方式，解決本地檔案無法讀取的問題
+        // -----------------------------------------------------
+
+        // 初始化 Google Viz API 的 callback 結構
+        // Google 會呼叫 google.visualization.Query.setResponse(data)
+        window.google = window.google || {};
+        window.google.visualization = window.google.visualization || {};
+        window.google.visualization.Query = window.google.visualization.Query || {};
+
+        // 定義處理資料的函數
+        window.google.visualization.Query.setResponse = function(response) {
+            if (response.status === 'error') {
+                showError('Google Sheets Error: ' + response.errors[0].message);
+                return;
+            }
+
+            const data = response.table;
+            
+            // 資料檢查：根據你的描述，資料在第二行 (Index 1)
+            // 欄位順序：A(0)=目標名稱, B(1)=目前金額, C(2)=目標金額
+            if (!data.rows || data.rows.length < 2) {
+                // 如果只有一行，可能標題行就是資料，或者沒資料
+                // 這裡假設如果沒有第二行，就什麼都不做
+                return;
+            }
+
+            // 取得第二列資料 (Array Index 1)
+            const row = data.rows[1];
+            
+            // 安全取得欄位值，防止欄位為空 (null)
+            // v = 原始數值/字串, f = 格式化後的字串(如果有)
+            const goalName = row.c[0] ? (row.c[0].v || '') : '目標';
+            const currentRaw = row.c[1] ? (row.c[1].v || 0) : 0;
+            const targetRaw = row.c[2] ? (row.c[2].v || 1) : 1;
+
+            const currentVal = parseFloat(currentRaw);
+            const targetVal = parseFloat(targetRaw);
+
+            // 計算百分比
+            let percentage = (currentVal / targetVal) * 100;
+            let displayPercentage = percentage.toFixed(1);
+            
+            if (percentage > 100) percentage = 100;
+            if (percentage < 0) percentage = 0;
+
+            // 更新畫面
+            updateDOM(goalName, currentVal, targetVal, percentage, displayPercentage);
+            
+            // 隱藏錯誤訊息
+            document.getElementById('error-msg').style.display = 'none';
+        };
+
+        function updateDOM(name, current, target, percent, displayPercent) {
+            document.getElementById('goalName').textContent = name;
+            document.getElementById('currentAmount').textContent = current.toLocaleString();
+            document.getElementById('targetAmount').textContent = target.toLocaleString();
+            document.getElementById('percentageText').textContent = `(${displayPercent}%)`;
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        function showError(msg) {
+            console.error(msg);
+            const errDiv = document.getElementById('error-msg');
+            errDiv.textContent = msg;
+            errDiv.style.display = 'block';
+        }
+
+        function updateData() {
+            // 移除舊的 script 標籤 (避免堆積)
+            const oldScript = document.getElementById('gviz-loader');
+            if (oldScript) {
+                oldScript.remove();
+            }
+
+            // 建立新的 script 標籤
+            // tqx=out:json -> 請求 JSON 格式
+            // tq= -> 可以在這裡寫 SQL 語法，這裡留空抓全部
+            // _ -> 加入時間戳記避免快取
+            const script = document.createElement('script');
+            script.id = 'gviz-loader';
+            script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}&_=${Date.now()}`;
+            script.onerror = function() {
+                showError('無法連接到 Google 試算表，請檢查網路或連結權限。');
+            };
+            
+            document.body.appendChild(script);
+        }
+
+        // 初始執行
+        updateData();
+
+        // 每 5 秒更新一次
+        setInterval(updateData, 5000);
+
+    </script>
+</body>
+</html>
