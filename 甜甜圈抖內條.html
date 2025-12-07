@@ -55,7 +55,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 20px; /* 強制統一高度 */
+            height: 15px; /* 強制統一高度 */
             /* 增加文字陰影，提高清晰度 */
             text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
         }
@@ -63,7 +63,6 @@
         /* --- 標題特定樣式 --- */
         .goal-title {
             font-size: 1.4rem; 
-            /* 移除舊的陰影，使用 .info-box 的統一設定 */
         }
 
         /* --- 金額與百分比特定樣式 --- */
@@ -84,6 +83,10 @@
             overflow: visible; /* 為了讓甜甜圈凸出來 */
             box-shadow: inset 0 5px 10px rgba(0,0,0,0.1);
             z-index: 1;
+            
+            /* [修正關鍵] 只在這裡加入 border-box */
+            /* 這樣寬度 100% 就會包含 4px 的邊框，不會超出容器導致右邊不對齊 */
+            box-sizing: border-box;
         }
 
         /* --- 進度條填充 (草莓糖霜) --- */
