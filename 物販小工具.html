@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>周邊結帳計算機</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -12,6 +12,8 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #fdf2f8; /* Pink-50 */
+            /* 關鍵修正：防止整個頁面的橡皮筋效果 */
+            overscroll-behavior: none; 
         }
         .tap-highlight-transparent {
             -webkit-tap-highlight-color: transparent;
@@ -23,6 +25,10 @@
         .no-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
+        }
+        /* iOS 滑動優化 */
+        .smooth-scroll {
+            -webkit-overflow-scrolling: touch;
         }
         /* Modal Animation */
         .modal-enter {
@@ -36,10 +42,11 @@
         }
     </style>
 </head>
-<body class="h-screen flex flex-col tap-highlight-transparent text-gray-800">
+<!-- 修改 Body：使用 100dvh 確保填滿手機視窗，overflow-hidden 禁止整體捲動 -->
+<body class="h-[100dvh] w-full overflow-hidden flex flex-col tap-highlight-transparent text-gray-800 bg-fdf2f8">
 
-    <!-- Header -->
-    <header class="bg-white shadow-sm p-4 sticky top-0 z-10 flex justify-between items-center">
+    <!-- Header: 移除 sticky，改為 flex item，自然停留在頂部 -->
+    <header class="flex-none bg-white shadow-sm p-4 z-30 flex justify-between items-center relative">
         <div>
             <h1 class="text-xl font-bold text-pink-600 flex items-center gap-2">
                 <i data-lucide="calculator" class="w-6 h-6"></i>
@@ -53,22 +60,26 @@
         </button>
     </header>
 
-    <!-- Product List -->
-    <main class="flex-1 overflow-y-auto p-4 pb-48 no-scrollbar">
+    <!-- Product List: 
+         1. flex-1 讓它佔據剩餘空間 
+         2. overflow-y-auto 讓只有這裡可以捲動
+         3. 移除 pb-48，因為 Footer 不再是 fixed 覆蓋，而是接在下方
+    -->
+    <main class="flex-1 overflow-y-auto p-4 no-scrollbar smooth-scroll relative z-0">
         <div class="grid gap-3" id="product-list">
             <!-- Items will be injected here by JS -->
         </div>
     </main>
 
-    <!-- Footer Summary (Fixed at bottom) -->
-    <footer class="bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+    <!-- Footer: 移除 fixed，改為 flex-none，讓它自然接在 Main 下方 -->
+    <footer class="flex-none bg-white border-t border-gray-200 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative">
         
         <!-- Bonus Notification Area -->
         <div id="bonus-alert" class="px-4 py-2 text-center text-sm font-bold transition-colors duration-300 min-h-[50px] flex flex-col justify-center">
             <!-- Content changes dynamically -->
         </div>
 
-        <div class="p-4 pt-2">
+        <div class="p-4 pt-2 pb-6"> <!-- 增加一點底部 padding 避免 iPhone Home Bar 遮擋 -->
             <div class="flex justify-between items-end mb-2">
                 <span class="text-gray-500 font-medium">總金額</span>
                 <span class="text-3xl font-bold text-gray-900" id="total-price">$0</span>
@@ -84,8 +95,8 @@
     <!-- Checkout Modal Overlay -->
     <div id="checkout-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <!-- Modal Content -->
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="bg-pink-50 p-4 border-b border-pink-100 flex justify-between items-center">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="bg-pink-50 p-4 border-b border-pink-100 flex justify-between items-center flex-none">
                 <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <i data-lucide="shopping-bag" class="w-5 h-5 text-pink-600"></i>
                     結帳清單確認
@@ -95,274 +106,11 @@
                 </button>
             </div>
             
-            <div class="p-4 overflow-y-auto flex-1">
+            <div class="p-4 overflow-y-auto flex-1 smooth-scroll">
                 <!-- Order Items -->
                 <div id="modal-items" class="space-y-3 mb-4">
                     <!-- JS Injected items -->
                 </div>
 
                 <!-- Divider -->
-                <div class="border-t border-dashed border-gray-300 my-4"></div>
-
-                <!-- Totals -->
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center text-lg font-bold">
-                        <span>總金額</span>
-                        <span class="text-pink-600 text-2xl" id="modal-total">$0</span>
-                    </div>
-                    <!-- Bonus Display in Modal -->
-                    <div id="modal-bonus" class="bg-gray-100 rounded-lg p-3 text-center text-sm font-bold">
-                        <!-- JS Injected Bonus Info -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-3">
-                <button onclick="closeModal()" class="bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl shadow-sm active:bg-gray-50 transition">
-                    返回修改
-                </button>
-                <button onclick="confirmAndReset()" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg active:bg-green-700 transition flex items-center justify-center gap-2">
-                    <i data-lucide="check-check" class="w-5 h-5"></i>
-                    完成並重置
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reset Confirmation Modal (New) -->
-    <div id="reset-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
-            <div class="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
-            </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">確定要清空嗎？</h3>
-            <p class="text-gray-500 mb-6">目前所有選擇的商品數量將會歸零。</p>
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="closeResetModal()" class="bg-gray-100 text-gray-700 font-bold py-2.5 rounded-lg hover:bg-gray-200 transition">
-                    取消
-                </button>
-                <button onclick="executeReset()" class="bg-red-500 text-white font-bold py-2.5 rounded-lg hover:bg-red-600 shadow-md transition">
-                    確認重置
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 商品資料
-        const products = [
-            { id: 1, name: '椪醬餅乾', price: 200 },
-            { id: 2, name: '獨照拍立得', price: 200 },
-            { id: 3, name: '合照拍立得', price: 300 },
-            { id: 4, name: '畫拍', price: 50 },
-            { id: 5, name: '動漫展生寫真', price: 200 },
-            { id: 6, name: '拍立得簽繪', price: 250 }
-        ];
-
-        // 狀態
-        let cart = {}; 
-        products.forEach(p => cart[p.id] = 0);
-
-        function init() {
-            const listContainer = document.getElementById('product-list');
-            
-            products.forEach(product => {
-                const card = document.createElement('div');
-                card.className = "bg-white p-3 rounded-xl shadow-sm border border-pink-100 flex items-center justify-between";
-                
-                card.innerHTML = `
-                    <div class="flex-1">
-                        <div class="font-bold text-lg text-gray-800">${product.name}</div>
-                        <div class="text-pink-600 font-medium">$${product.price}</div>
-                    </div>
-                    
-                    <div class="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
-                        <button onclick="updateQty(${product.id}, -1)" class="w-10 h-10 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 active:bg-gray-100 disabled:opacity-50">
-                            <i data-lucide="minus" class="w-4 h-4"></i>
-                        </button>
-                        
-                        <div class="w-12 text-center font-bold text-xl transition-colors duration-200" id="qty-${product.id}">0</div>
-                        
-                        <button onclick="updateQty(${product.id}, 1)" class="w-10 h-10 flex items-center justify-center bg-pink-500 rounded-md shadow-sm text-white active:bg-pink-600">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                `;
-                listContainer.appendChild(card);
-            });
-
-            lucide.createIcons();
-            updateUI();
-        }
-
-        function updateQty(id, change) {
-            const newQty = cart[id] + change;
-            if (newQty >= 0) {
-                cart[id] = newQty;
-                const qtyEl = document.getElementById(`qty-${id}`);
-                qtyEl.innerText = cart[id];
-                qtyEl.classList.toggle('text-pink-600', cart[id] > 0);
-                qtyEl.classList.toggle('text-gray-800', cart[id] === 0);
-                updateSummary();
-            }
-        }
-
-        // --- Reset Logic (Changed to Custom Modal) ---
-
-        function openResetModal() {
-            document.getElementById('reset-confirm-modal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeResetModal() {
-            document.getElementById('reset-confirm-modal').classList.add('hidden');
-        }
-
-        function executeReset() {
-            doReset();
-            closeResetModal();
-        }
-
-        // Actual Reset Worker
-        function doReset() {
-            products.forEach(p => cart[p.id] = 0);
-            products.forEach(p => {
-                const qtyEl = document.getElementById(`qty-${p.id}`);
-                qtyEl.innerText = '0';
-                qtyEl.classList.remove('text-pink-600');
-                qtyEl.classList.add('text-gray-800');
-            });
-            updateSummary();
-        }
-
-        function calculateTotal() {
-            let total = 0;
-            products.forEach(p => {
-                total += p.price * cart[p.id];
-            });
-            return total;
-        }
-
-        function updateSummary() {
-            const total = calculateTotal();
-            document.getElementById('total-price').innerText = `$${total}`;
-
-            const bonusAlert = document.getElementById('bonus-alert');
-            const tier1 = 550;
-            const tier2 = 900;
-
-            if (total === 0) {
-                bonusAlert.className = "px-4 py-2 text-center text-sm font-medium bg-gray-100 text-gray-500";
-                bonusAlert.innerHTML = `滿 $${tier1} 送一張，滿 $${tier2} 送兩張`;
-            } else if (total < tier1) {
-                const diff = tier1 - total;
-                bonusAlert.className = "px-4 py-2 text-center text-sm font-bold bg-yellow-50 text-yellow-700 border-t border-yellow-100";
-                bonusAlert.innerHTML = `還差 <span class="text-red-500 text-lg">$${diff}</span> 送 1 張小卡！`;
-            } else if (total >= tier1 && total < tier2) {
-                const diff = tier2 - total;
-                bonusAlert.className = "px-4 py-2 text-center bg-green-100 text-green-900 border-t border-b border-green-200";
-                bonusAlert.innerHTML = `
-                    <div class="flex flex-col items-center">
-                        <div class="font-bold text-lg flex items-center gap-2 text-green-700">
-                            <i data-lucide="gift" class="w-5 h-5"></i>
-                            獲得 1 張小卡
-                        </div>
-                        <div class="text-sm font-medium text-green-600 mt-0.5">
-                            再買 <span class="text-red-600 font-bold text-base">$${diff}</span> 送第 2 張！
-                        </div>
-                    </div>
-                `;
-                lucide.createIcons();
-            } else {
-                bonusAlert.className = "px-4 py-3 text-center bg-purple-100 text-purple-900 border-t border-b border-purple-200 animate-pulse";
-                bonusAlert.innerHTML = `
-                    <div class="font-bold text-xl flex justify-center items-center gap-2">
-                        <i data-lucide="party-popper" class="w-6 h-6"></i>
-                        獲得 2 張小卡！
-                    </div>
-                `;
-                lucide.createIcons();
-            }
-        }
-        
-        function updateUI() {
-            updateSummary();
-        }
-
-        // --- Checkout Modal Logic ---
-
-        function showCheckoutModal() {
-            const total = calculateTotal();
-            if (total === 0) {
-                // Using custom modal for alert too, for consistency, 
-                // but standard alert might work depending on env. 
-                // Let's just use the bonus bar to warn or shake it.
-                const btn = document.querySelector('footer button');
-                btn.classList.add('animate-bounce');
-                setTimeout(() => btn.classList.remove('animate-bounce'), 500);
-                return;
-            }
-
-            // Populate Items
-            const modalItems = document.getElementById('modal-items');
-            modalItems.innerHTML = '';
-            
-            let hasItems = false;
-            products.forEach(p => {
-                const count = cart[p.id];
-                if (count > 0) {
-                    hasItems = true;
-                    const row = document.createElement('div');
-                    row.className = "flex justify-between items-center text-sm";
-                    row.innerHTML = `
-                        <div class="flex items-center gap-2">
-                            <span class="bg-pink-100 text-pink-700 font-bold px-2 py-0.5 rounded text-xs">x${count}</span>
-                            <span class="text-gray-800 font-medium">${p.name}</span>
-                        </div>
-                        <span class="font-bold text-gray-600">$${count * p.price}</span>
-                    `;
-                    modalItems.appendChild(row);
-                }
-            });
-
-            // Set Total
-            document.getElementById('modal-total').innerText = `$${total}`;
-
-            // Set Bonus Info in Modal
-            const modalBonus = document.getElementById('modal-bonus');
-            const tier1 = 550;
-            const tier2 = 900;
-            
-            if (total >= tier2) {
-                modalBonus.className = "bg-purple-100 text-purple-800 rounded-lg p-3 text-center font-bold border border-purple-200";
-                modalBonus.innerHTML = `<i data-lucide="party-popper" class="w-4 h-4 inline mr-1"></i> 請贈送 2 張小卡`;
-            } else if (total >= tier1) {
-                modalBonus.className = "bg-green-100 text-green-800 rounded-lg p-3 text-center font-bold border border-green-200";
-                modalBonus.innerHTML = `<i data-lucide="gift" class="w-4 h-4 inline mr-1"></i> 請贈送 1 張小卡`;
-            } else {
-                modalBonus.className = "bg-gray-100 text-gray-500 rounded-lg p-3 text-center text-sm";
-                modalBonus.innerText = "未達贈品門檻";
-            }
-
-            // Show Modal
-            const modal = document.getElementById('checkout-modal');
-            modal.classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeModal() {
-            document.getElementById('checkout-modal').classList.add('hidden');
-        }
-
-        function confirmAndReset() {
-            // Vibrate if mobile
-            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-            
-            doReset();
-            closeModal();
-        }
-
-        init();
-    </script>
-</body>
-</html>
+                <div class="border
