@@ -2,30 +2,36 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>周邊結帳計算機</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* 確保 HTML 與 Body 佔滿高度 */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #fdf2f8; /* Pink-50 */
-            overscroll-behavior: none; /* 防止橡皮筋效果 */
+        /* 強制重置 */
+        * {
+            box-sizing: border-box;
         }
-        
+
+        /* 鎖定 Body 避免捲動，讓 AppContainer 處理捲動 */
         body {
             font-family: 'Noto Sans TC', sans-serif;
+            background-color: #fdf2f8;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* 關鍵：禁止 Body 捲動 */
+            position: fixed;  /* 關鍵：強制固定位置 */
+            inset: 0;        /* 關鍵：填滿四邊 */
+            height: 100%;
+            width: 100%;
         }
 
         .tap-highlight-transparent {
             -webkit-tap-highlight-color: transparent;
         }
-        /* Custom scrollbar hide for cleaner UI */
+
+        /* 隱藏捲軸但保留功能 */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -33,60 +39,71 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* iOS 滑動優化 */
+        
         .smooth-scroll {
             -webkit-overflow-scrolling: touch;
         }
+
+        /* 底部安全區域適配 (iPhone Home Bar) */
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
     </style>
 </head>
-<!-- Body 結構修正：使用 h-screen 確保高度，flex 佈局 -->
-<body class="h-screen w-full overflow-hidden flex flex-col tap-highlight-transparent text-gray-800">
+<body>
 
-    <!-- Header -->
-    <header class="flex-none bg-white shadow-sm p-4 z-30 flex justify-between items-center relative">
-        <div>
-            <h1 class="text-xl font-bold text-pink-600 flex items-center gap-2">
-                <i data-lucide="calculator" class="w-6 h-6"></i>
-                結帳計算機
-            </h1>
-        </div>
-        <button onclick="openResetModal()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition flex items-center gap-1">
-            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-            重置
-        </button>
-    </header>
+    <!-- App Container: 使用 Flexbox 管理垂直佈局 -->
+    <div class="flex flex-col h-full w-full">
 
-    <!-- Product List -->
-    <main class="flex-1 overflow-y-auto p-4 no-scrollbar smooth-scroll relative z-0">
-        <div class="grid gap-3" id="product-list">
-            <!-- Items will be injected here by JS -->
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="flex-none bg-white border-t border-gray-200 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative">
-        
-        <!-- Bonus Notification Area -->
-        <div id="bonus-alert" class="px-4 py-2 text-center text-sm font-bold transition-colors duration-300 min-h-[50px] flex flex-col justify-center">
-            <!-- Content changes dynamically -->
-        </div>
-
-        <div class="p-4 pt-2 pb-6">
-            <div class="flex justify-between items-end mb-2">
-                <span class="text-gray-500 font-medium">總金額</span>
-                <span class="text-3xl font-bold text-gray-900" id="total-price">$0</span>
+        <!-- Header -->
+        <header class="flex-none bg-white shadow-sm p-4 z-30 flex justify-between items-center relative">
+            <div>
+                <h1 class="text-xl font-bold text-pink-600 flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-6 h-6"></i>
+                    結帳計算機
+                </h1>
             </div>
-            
-            <button onclick="showCheckoutModal()" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2">
-                <i data-lucide="clipboard-list" class="w-5 h-5"></i>
-                確認清單 & 結帳
+            <button onclick="openResetModal()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition flex items-center gap-1">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                重置
             </button>
-        </div>
-    </footer>
+        </header>
+
+        <!-- Product List: 自動填滿剩餘空間，獨立捲動 -->
+        <main class="flex-1 overflow-y-auto p-4 no-scrollbar smooth-scroll relative z-0 bg-pink-50/50">
+            <div class="grid gap-3 pb-4" id="product-list">
+                <!-- Items will be injected here by JS -->
+            </div>
+        </main>
+
+        <!-- Footer: 固定在底部，增加底部留白 -->
+        <footer class="flex-none bg-white border-t border-gray-200 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] safe-bottom">
+            
+            <!-- Bonus Notification Area -->
+            <div id="bonus-alert" class="px-4 py-2 text-center text-sm font-bold transition-colors duration-300 min-h-[50px] flex flex-col justify-center">
+                <!-- Content changes dynamically -->
+            </div>
+
+            <!-- 操作區：特別加大底部 Padding (pb-6) + 上面CSS的 safe-bottom -->
+            <div class="px-4 pt-2 pb-6">
+                <div class="flex justify-between items-end mb-3">
+                    <span class="text-gray-500 font-medium">總金額</span>
+                    <span class="text-3xl font-bold text-gray-900" id="total-price">$0</span>
+                </div>
+                
+                <button onclick="showCheckoutModal()" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2 text-lg">
+                    <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+                    確認清單 & 結帳
+                </button>
+            </div>
+        </footer>
+
+    </div>
 
     <!-- Checkout Modal Overlay -->
     <div id="checkout-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <!-- 注意：Modal 高度限制改為 h-auto 但最大 80%，避免太長被擋住 -->
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]">
             <div class="bg-pink-50 p-4 border-b border-pink-100 flex justify-between items-center flex-none">
                 <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <i data-lucide="shopping-bag" class="w-5 h-5 text-pink-600"></i>
@@ -109,7 +126,7 @@
                 </div>
             </div>
 
-            <div class="p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-3 flex-none">
+            <div class="p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-3 flex-none safe-bottom">
                 <button onclick="closeModal()" class="bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl shadow-sm active:bg-gray-50 transition">
                     返回修改
                 </button>
@@ -156,9 +173,9 @@
 
         function init() {
             const listContainer = document.getElementById('product-list');
-            if (!listContainer) return; // 安全檢查
+            if (!listContainer) return; 
             
-            listContainer.innerHTML = ''; // 清空以防重複渲染
+            listContainer.innerHTML = ''; 
 
             products.forEach(product => {
                 const card = document.createElement('div');
@@ -171,21 +188,20 @@
                     </div>
                     
                     <div class="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
-                        <button onclick="updateQty(${product.id}, -1)" class="w-10 h-10 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 active:bg-gray-100 disabled:opacity-50">
-                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        <button onclick="updateQty(${product.id}, -1)" class="w-12 h-11 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 active:bg-gray-100 disabled:opacity-50 touch-manipulation">
+                            <i data-lucide="minus" class="w-5 h-5"></i>
                         </button>
                         
                         <div class="w-12 text-center font-bold text-xl transition-colors duration-200" id="qty-${product.id}">0</div>
                         
-                        <button onclick="updateQty(${product.id}, 1)" class="w-10 h-10 flex items-center justify-center bg-pink-500 rounded-md shadow-sm text-white active:bg-pink-600">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        <button onclick="updateQty(${product.id}, 1)" class="w-12 h-11 flex items-center justify-center bg-pink-500 rounded-md shadow-sm text-white active:bg-pink-600 touch-manipulation">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
                         </button>
                     </div>
                 `;
                 listContainer.appendChild(card);
             });
 
-            // 安全載入圖示
             if (window.lucide) {
                 lucide.createIcons();
             }
@@ -365,7 +381,6 @@
             closeModal();
         }
 
-        // 確保 DOM 載入完成後再執行
         document.addEventListener('DOMContentLoaded', () => {
             init();
         });
