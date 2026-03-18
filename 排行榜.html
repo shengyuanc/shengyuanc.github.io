@@ -86,7 +86,7 @@
         /* 前三名特別樣式 */
         .rank-item.top-1 { border-color: var(--rank-1); background: #fffdf0; transform: scale(1.02); }
         .rank-item.top-2 { border-color: var(--rank-2); }
-        .rank-item.top-3 { border-color: var(--rank-3); } /* 修正：第三名原設為 rank-3 但 CSS 有誤，這裡統一 */
+        .rank-item.top-3 { border-color: var(--rank-3); }
 
         .rank-num {
             font-weight: 800;
@@ -159,17 +159,17 @@
         // [重要] Google Sheet CSV 連結
         const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1_HqekZK6Yx119AnJEi-Yajfxq-P2Wd29h91kuyp2n24/export?format=csv&gid=1135280746"; 
 
-        // [修改點] 更新頻率：20000 毫秒 (20秒)
+        // 更新頻率：20000 毫秒 (20秒)
         const REFRESH_INTERVAL = 20000;
 
         // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
         const COLUMN_OFFSET = 0;
 
-        // 代理服務列表 (解決 CORS 問題)
-        // 系統會依序嘗試，如果第一個失敗就試第二個
+        // 代理服務列表 (解決 CORS 問題) - 已優化順序並新增備用
         const PROXY_PROVIDERS = [
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
             (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` // 新增的備用代理
         ];
 
         // =========================================
@@ -183,7 +183,7 @@
             { name: "測試乾媽", amount: 500 }
         ];
 
-        // 帶有重試機制的 Fetch 函數
+        // 帶有重試機制與「超時中斷」的 Fetch 函數
         async function fetchWithFallback(originalUrl) {
             let lastError = null;
 
@@ -191,7 +191,15 @@
                 try {
                     const targetUrl = createProxyUrl(originalUrl);
                     // console.log("Trying proxy:", targetUrl); // Debug 用
-                    const response = await fetch(targetUrl);
+                    
+                    // 設定 5 秒超時控制器 (如果 5 秒沒抓到，直接放棄換下一個，避免卡死)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                    const response = await fetch(targetUrl, { signal: controller.signal });
+                    
+                    // 清除超時計時器
+                    clearTimeout(timeoutId);
                     
                     if (!response.ok) {
                         throw new Error(`Status ${response.status}`);
@@ -199,7 +207,7 @@
                     
                     return await response.text(); // 成功取得資料直接返回
                 } catch (error) {
-                    // console.warn("Proxy failed, trying next...", error);
+                    console.warn("Proxy failed or timed out, trying next...", error.name);
                     lastError = error;
                     // 繼續下一個迴圈嘗試備用代理
                 }
@@ -220,12 +228,12 @@
             }
 
             try {
-                // 構建目標 URL
+                // 構建目標 URL，加上 timestamp 避免瀏覽器快取
                 const timestamp = Date.now();
                 const connector = GOOGLE_SHEET_CSV_URL.includes('?') ? '&' : '?';
                 const originalUrlWithTime = `${GOOGLE_SHEET_CSV_URL}${connector}t=${timestamp}`;
                 
-                // 使用新的重試機制抓取資料
+                // 使用新的重試與超時機制抓取資料
                 const text = await fetchWithFallback(originalUrlWithTime);
 
                 // 檢查是否抓到錯誤頁面 (HTML)
@@ -250,7 +258,7 @@
                             ❌ 讀取失敗<br>
                             <span style='font-size:0.8rem; opacity:0.9; color:#ffdddd;'>
                                 連線不穩，重試中...<br>
-                                (${error.message})
+                                (${error.name === 'AbortError' ? '連線超時' : error.message})
                             </span>
                         </div>
                     `;
