@@ -1,82 +1,393 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>抖內進度條</title>
-  <style>
-    body {
-      background: transparent;
-      font-family: 'Arial', sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 10px;
-    }
-    .bar-container {
-      width: 80%;
-      height: 40px;
-      background: #444;
-      margin: 0 auto;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 0 10px #000;
-      position: relative;
-      color: white;
-    }
-    .bar {
-      height: 100%;
-      background: linear-gradient(to right, #00ffc3, #00b8ff);
-      width: 0%;
-      transition: width 0.5s;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    .bar-text {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
-      z-index: 1;
-      text-shadow: 1px 1px 2px #000;
-      pointer-events: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可愛風直播跑馬燈 ＆ 甜甜圈抖內條 (單一長條整合版)</title>
+    
+    <!-- 引入所有可愛字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Fredoka:wght@400;600&family=Noto+Sans+TC:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ================= 全域佈局設定 ================= */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent; /* OBS 背景透明 */
+            overflow: hidden; /* 防止出現捲軸 */
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center; /* 水平置中 */
+            align-items: flex-end;   /* 預設靠底部 */
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+        }
+
+        /* ================= 組合佈局 (單一長條整合版) ================= */
+        .combined-widget {
+            display: flex;
+            flex-direction: row; 
+            align-items: stretch; /* 讓內部左右兩塊高度一致 */
+            width: 1050px; /* 固定適合 16:9 的總長度 */
+            height: 40px; /* 【修改點】從 48px 縮小為 40px，與原本跑馬燈高度一致 */
+            margin-bottom: 30px;
+            
+            /* 【修改點】邊框從 3px 改為 2px，視覺上更輕盈不粗重 */
+            border: 2px solid #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(255, 105, 180, 0.3);
+            overflow: hidden; /* 確保內部背景不會超出圓角邊界 */
+        }
+
+        /* ================= 左側：甜甜圈抖內區 ================= */
+        .donut-section {
+            background: rgba(255, 255, 255, 0.7); /* 半透明白底 */
+            backdrop-filter: blur(8px); /* 毛玻璃效果 */
+            display: flex;
+            align-items: center;
+            gap: 8px; /* 稍微縮小元件間距 */
+            padding: 0 12px;
+            flex-shrink: 0; 
+            border-right: 2px solid #fff; /* 分隔線配合變細 */
+        }
+
+        .info-box {
+            background-color: #ff8b94;
+            padding: 2px 10px; /* 縮小內距 */
+            border-radius: 12px;
+            border: 2px solid #fff; 
+            box-shadow: 0 3px 0 rgba(0,0,0,0.1);
+            color: #fff;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap; /* 確保文字不換行 */
+        }
+
+        .goal-title { font-size: 0.85rem; } 
+        .goal-amounts-container { font-size: 0.85rem; gap: 2px; }
+
+        .progress-bar-bg {
+            width: 180px; /* 稍微縮短一點進度條 */
+            flex-shrink: 0; 
+            height: 20px; /* 進度條變細 */
+            background-color: #f4d0a8;
+            border-radius: 10px;
+            border: 2px solid #fff; /* 邊框變細 */
+            position: relative;
+            overflow: visible;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.1);
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(180deg, #ffb7b2 0%, #ff9aa2 100%);
+            border-radius: 8px;
+            position: relative;
+            transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 8px 8px 50% 50% / 8px 8px 4px 4px;
+        }
+
+        .sprinkles {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(#fff4e6 15%, transparent 16%),
+                radial-gradient(#ffd3b6 15%, transparent 16%),
+                radial-gradient(#ffdfba 15%, transparent 16%);
+            background-size: 15px 15px; 
+            background-position: 0 0, 7px 7px, 3px 10px;
+            opacity: 0.6;
+        }
+
+        .donut-icon-wrapper {
+            position: absolute;
+            left: 0; 
+            top: 50%;
+            margin-top: -15px; /* 配合縮小的甜甜圈 */
+            width: 30px; /* 甜甜圈縮小 */
+            height: 30px;
+            z-index: 10;
+            filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));
+            transition: left 0.5s ease-out; 
+            margin-left: -15px; 
+            pointer-events: none; 
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .donut-svg {
+            width: 100%; height: 100%;
+            animation: spin 8s linear infinite;
+        }
+
+        /* ================= 右側：跑馬燈區 ================= */
+        .ticker-section {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            flex-grow: 1; /* 填滿剩餘的所有寬度 */
+            background: #ff9aa2; /* 純粉色背景，確保文字絕對清晰 */
+            display: flex;
+            align-items: center;
+            position: relative;
+            /* 取消這裡的外框與圓角，讓最外層的 combined-widget 統一管理 */
+        }
+
+        .badge {
+            position: absolute;
+            left: 10px;
+            z-index: 10;
+            background: #fff;
+            color: #FF6B6B;
+            padding: 2px 8px; /* 徽章內距稍微縮小 */
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.8rem; /* 字體微調 */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 限制跑馬燈只在徽章右側區域滾動 */
+        .ticker-viewport {
+            position: absolute;
+            left: 75px; /* 避開 badge 的寬度 */
+            right: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .scrolling-text {
+            white-space: nowrap;
+            position: absolute;
+            left: 100%; 
+            height: 100%;
+            will-change: left, transform;
+            animation: scroll-left 20s linear infinite; 
+            color: #fff;
+            font-size: 1.05rem; /* 字體稍微縮小配合長條高度 */
+            font-weight: 700;
+            text-shadow: 1px 1px 0px rgba(255, 107, 107, 0.5);
+            display: flex;
+            align-items: center;
+        }
+
+        @keyframes scroll-left {
+            0% { 
+                left: 100%;
+                transform: translateX(0);
+            }
+            100% { 
+                left: 0;
+                transform: translateX(-100%);
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="bar-container">
-    <div class="bar" id="bar"></div>
-    <div class="bar-text" id="barText">載入中...</div>
-  </div>
 
-  <script>
-    const sheetUrl = "https://opensheet.elk.sh/1azxnr3GssBjGuEwAhg7aHp_RyR5vGNqmL-X2GrG5fu4/工作表1";
+    <!-- ================= 組合佈局 (單一長條整合版) ================= -->
+    <div class="combined-widget">
+        
+        <!-- 左半部：甜甜圈抖內條 -->
+        <div class="donut-section">
+            <!-- 1. 左側標題 -->
+            <div class="info-box goal-title" id="goalName">讀取中...</div>
 
-    async function fetchData() {
-      try {
-        const res = await fetch(sheetUrl);
-        const data = await res.json();
+            <!-- 2. 中間進度條 -->
+            <div class="progress-bar-bg">
+                <div class="progress-fill" id="progressBar">
+                    <div class="sprinkles"></div>
+                </div>
 
-        const goalName = data[0]["目標名稱"];
-        const current = parseInt(data[0]["目前金額"]);
-        const goal = parseInt(data[0]["目標金額"]);
-        const percent = Math.min((current / goal) * 100, 100).toFixed(2);
+                <div class="donut-icon-wrapper" id="donutIcon">
+                    <svg class="donut-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <radialGradient id="doughShadow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                                <stop offset="70%" stop-color="#f4d0a8" />
+                                <stop offset="100%" stop-color="#dcb080" />
+                            </radialGradient>
+                            <linearGradient id="frostingShine" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#ffcdd2" />
+                                <stop offset="50%" stop-color="#ff9aa2" />
+                                <stop offset="100%" stop-color="#ff808b" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="48" fill="url(#doughShadow)" />
+                        <path d="M 50 4 C 20 4, 4 25, 4 50 C 4 78, 25 96, 50 96 C 75 96, 96 78, 96 50 C 96 25, 80 4, 50 4 Z" fill="url(#frostingShine)" stroke="none"/>
+                        <circle cx="50" cy="50" r="16" fill="#f4d0a8" />
+                        <circle cx="50" cy="50" r="16" fill="black" opacity="0.1" />
+                        <path d="M 25 25 Q 40 10 60 15" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.6" fill="none"/>
+                        <circle cx="75" cy="30" r="2" fill="white" opacity="0.7"/>
+                        <g filter="drop-shadow(1px 1px 0px rgba(0,0,0,0.2))">
+                            <rect x="30" y="20" width="8" height="4" fill="#fff" transform="rotate(45 30 20)" rx="2"/>
+                            <rect x="70" y="25" width="8" height="4" fill="#ffeeaa" transform="rotate(-15 70 25)" rx="2"/>
+                            <rect x="25" y="70" width="8" height="4" fill="#fff" transform="rotate(80 25 70)" rx="2"/>
+                            <rect x="65" y="80" width="8" height="4" fill="#ffeeaa" transform="rotate(-10 65 80)" rx="2"/>
+                            <rect x="50" y="10" width="8" height="4" fill="#fff" transform="rotate(0 50 10)" rx="2"/>
+                            <rect x="80" y="50" width="8" height="4" fill="#aaddff" transform="rotate(90 80 50)" rx="2"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
 
-        const label = `🎯 ${goalName}：NT$${current} / NT$${goal}（${percent}%）`;
+            <!-- 3. 右側金額與百分比 -->
+            <div class="info-box goal-amounts-container">
+                <span id="currentAmount">0</span>
+                <span style="margin: 0 3px;">/</span>
+                <span id="targetAmount">0</span>
+                <span id="goalPercent" style="margin-left: 6px;">(0%)</span>
+            </div>
+        </div>
 
-        document.getElementById("bar").style.width = percent + "%";
-        document.getElementById("barText").textContent = label;
-      } catch (err) {
-        document.getElementById("barText").textContent = "讀取錯誤";
-        console.error(err);
-      }
-    }
+        <!-- 右半部：跑馬燈區 -->
+        <div class="ticker-section">
+            <div class="badge"><span>📢</span> 公告</div>
+            <div class="ticker-viewport">
+                <div class="scrolling-text" id="ticker-content">載入中... 🌸 請稍候</div>
+            </div>
+        </div>
 
-    fetchData();
-    setInterval(fetchData, 10000);
-  </script>
+    </div>
+
+    <!-- ================= 腳本邏輯區 ================= -->
+    <script>
+        // ----------------- 設定區 -----------------
+        
+        // 【跑馬燈設定】
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1kaW3o3-LEyDr_Vs-9ykTIxi_-vEz5vn2f_mxK-s1UZo/gviz/tq?tqx=out:csv'; 
+        const DEFAULT_MESSAGES = [
+            "歡迎來到直播間！記得按讚訂閱喔！",
+            "今天是輕鬆聊天的風格～",
+            "點歌請看指令說明",
+            "感謝大家的收看 (´▽`ʃ♡ƪ)"
+        ];
+        const SEPARATOR = " 🌸 ";
+
+        // 【抖內條設定】
+        const DONUT_SHEET_ID = '1azxnr3GssBjGuEwAhg7aHp_RyR5vGNqmL-X2GrG5fu4';
+        const DONUT_REFRESH_INTERVAL = 5000; 
+
+
+        // ----------------- 跑馬燈邏輯 -----------------
+        async function fetchMessages() {
+            if (!SHEET_CSV_URL) {
+                updateTicker(DEFAULT_MESSAGES);
+                return;
+            }
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error("網路回應錯誤");
+                
+                const text = await response.text();
+                const messages = parseCSV(text);
+                
+                if (messages.length > 0) {
+                    updateTicker(messages);
+                } else {
+                    updateTicker(DEFAULT_MESSAGES);
+                }
+            } catch (error) {
+                console.error("跑馬燈讀取失敗:", error);
+                updateTicker(DEFAULT_MESSAGES);
+            }
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const result = [];
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line.startsWith('"') && line.endsWith('"')) {
+                    line = line.substring(1, line.length - 1);
+                }
+                if (line) result.push(line);
+            }
+            return result;
+        }
+
+        function updateTicker(messages) {
+            const ticker = document.getElementById('ticker-content');
+            let displayContent = messages.join(SEPARATOR);
+            ticker.innerText = displayContent;
+            const duration = Math.max(15, displayContent.length * 0.6);
+            ticker.style.animationDuration = `${duration}s`;
+        }
+
+        // ----------------- 抖內條邏輯 -----------------
+        const elGoalName = document.getElementById('goalName');
+        const elCurrent = document.getElementById('currentAmount');
+        const elTarget = document.getElementById('targetAmount');
+        const elPercent = document.getElementById('goalPercent');
+        const elBar = document.getElementById('progressBar');
+        const elDonutIcon = document.getElementById('donutIcon');
+
+        window.loadSheetData = function(data) {
+            if (!data || !data.table || !data.table.rows || data.table.rows.length === 0) return;
+            const row = data.table.rows[0];
+            const name = (row.c[0] && row.c[0].v != null) ? row.c[0].v : '目標';
+            const current = (row.c[1] && row.c[1].v != null) ? parseFloat(row.c[1].v) : 0;
+            const target = (row.c[2] && row.c[2].v != null) ? parseFloat(row.c[2].v) : 0;
+            renderDonut(name, current, target);
+        };
+
+        function updateDonutData() {
+            const scriptUrl = `https://docs.google.com/spreadsheets/d/${DONUT_SHEET_ID}/gviz/tq?tqx=responseHandler:loadSheetData&range=A2:C2&_=${Date.now()}`;
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            script.onload = function() { this.remove(); };
+            script.onerror = function() { this.remove(); };
+            document.body.appendChild(script);
+        }
+
+        function renderDonut(name, current, target) {
+            elGoalName.innerText = name;
+            elCurrent.innerText = current.toLocaleString(); 
+            elTarget.innerText = target.toLocaleString();
+
+            let percentage = 0;
+            if (target > 0) {
+                percentage = (current / target) * 100;
+            }
+            elPercent.innerText = `(${Math.floor(percentage)}%)`;
+            
+            let visualPercentage = Math.min(percentage, 100); 
+            visualPercentage = Math.max(visualPercentage, 0); 
+
+            elBar.style.width = visualPercentage + '%';
+            elDonutIcon.style.left = visualPercentage + '%';
+        }
+
+        // ----------------- 啟動區 -----------------
+        // 啟動跑馬燈
+        fetchMessages();
+        setInterval(fetchMessages, 50000);
+
+        // 啟動抖內條
+        updateDonutData();
+        setInterval(updateDonutData, DONUT_REFRESH_INTERVAL);
+
+    </script>
 </body>
 </html>
