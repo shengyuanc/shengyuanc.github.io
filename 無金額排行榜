@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS 抖內榜單 - 可愛橘粉版 (隱藏金額)</title>
+    <!-- 引入字型：M PLUS Rounded 1c (圓體) 與 Noto Sans TC (黑體 - 手機相容性佳) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義樣式區 */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #5d4037; /* 溫暖的深棕色 */
+            --rank-1: #FFD700; /* 金 */
+            --rank-2: #C0C0C0; /* 銀 */
+            --rank-3: #CD7F32; /* 銅 */
+        }
+
+        body {
+            /* 預設維持可愛圓體，若不支援則退回 Noto Sans TC */
+            font-family: 'M PLUS Rounded 1c', 'Noto Sans TC', sans-serif;
+            background-color: transparent; /* OBS 用，背景透明 */
+            color: var(--text-color);
+            overflow: hidden; /* 防止捲軸出現 */
+        }
+
+        /* 整個榜單容器 */
+        .rank-container {
+            width: 400px; /* 您可以調整這裡的寬度 */
+            background: var(--primary-gradient);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(255, 154, 158, 0.4);
+            border: 3px solid #fff;
+            margin: 20px;
+            position: relative;
+        }
+
+        /* 標題樣式 */
+        .header-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 900; /* 加到最粗，讓手機觀看更清晰 */
+            /* 標題改用 Noto Sans TC 以確保手機顯示正常且清晰 */
+            font-family: 'Noto Sans TC', sans-serif;
+            color: #fff;
+            text-shadow: 2px 2px 0px rgba(255, 140, 144, 1);
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .header-title::after {
+            content: '♥';
+            position: absolute;
+            right: 20px;
+            top: 0;
+            transform: rotate(15deg);
+            font-size: 1.2rem;
+        }
+        
+        .header-title::before {
+            content: '♥';
+            position: absolute;
+            left: 20px;
+            top: 10px;
+            transform: rotate(-15deg);
+            font-size: 1rem;
+        }
+
+        /* 列表項目樣式 */
+        .rank-item {
+            display: flex;
+            align-items: center;
+            background: var(--glass-bg);
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid transparent;
+        }
+
+        /* 前三名特別樣式 */
+        .rank-item.top-1 { border-color: var(--rank-1); background: #fffdf0; transform: scale(1.02); }
+        .rank-item.top-2 { border-color: var(--rank-2); }
+        .rank-item.top-3 { border-color: var(--rank-3); }
+
+        .rank-num {
+            font-weight: 800;
+            font-size: 1.2rem;
+            width: 35px;
+            text-align: center;
+            margin-right: 10px;
+            color: #ff8c94;
+        }
+
+        .top-1 .rank-num { color: var(--rank-1); }
+        .top-2 .rank-num { color: var(--rank-2); }
+        .top-3 .rank-num { color: var(--rank-3); }
+
+        .user-name {
+            flex-grow: 1;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 1.1rem;
+            text-align: left; /* 確保名字靠左對齊 */
+        }
+
+        /* 進場動畫 */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .list-enter {
+            animation: slideIn 0.5s forwards;
+        }
+
+        /* 自定義捲軸 (如果名單太長想做成滾動可開啟) */
+        ::-webkit-scrollbar { width: 0px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="rank-container">
+        <div class="header-title">
+            ✨ 感謝大家抖內 ✨
+        </div>
+        <div id="loading" class="text-center text-white font-bold py-4">
+            載入中...
+        </div>
+        <div id="rank-list">
+            <!-- JS 會將列表插入這裡 -->
+        </div>
+        <div class="text-center mt-2 text-xs text-white opacity-80 font-bold">
+            Updated <span id="last-update-time">just now</span>
+        </div>
+    </div>
+
+    <script>
+        // ================= 設定區 =================
+
+        const USE_MOCK_DATA = false;
+
+        // [重要] Google Sheet CSV 連結
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1_HqekZK6Yx119AnJEi-Yajfxq-P2Wd29h91kuyp2n24/export?format=csv&gid=1135280746"; 
+
+        // 更新頻率：20000 毫秒 (20秒)
+        const REFRESH_INTERVAL = 20000;
+
+        // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
+        const COLUMN_OFFSET = 0;
+
+        // 代理服務列表 (解決 CORS 問題) - 已優化順序並新增備用
+        const PROXY_PROVIDERS = [
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` // 新增的備用代理
+        ];
+
+        // =========================================
+
+        const listContainer = document.getElementById('rank-list');
+        const loadingDiv = document.getElementById('loading');
+        const timeSpan = document.getElementById('last-update-time');
+
+        const mockData = [
+            { name: "測試乾爹", amount: 1000 },
+            { name: "測試乾媽", amount: 500 }
+        ];
+
+        // 帶有重試機制與「超時中斷」的 Fetch 函數
+        async function fetchWithFallback(originalUrl) {
+            let lastError = null;
+
+            for (const createProxyUrl of PROXY_PROVIDERS) {
+                try {
+                    const targetUrl = createProxyUrl(originalUrl);
+                    // console.log("Trying proxy:", targetUrl); // Debug 用
+                    
+                    // 設定 5 秒超時控制器 (如果 5 秒沒抓到，直接放棄換下一個，避免卡死)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                    const response = await fetch(targetUrl, { signal: controller.signal });
+                    
+                    // 清除超時計時器
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Status ${response.status}`);
+                    }
+                    
+                    return await response.text(); // 成功取得資料直接返回
+                } catch (error) {
+                    console.warn("Proxy failed or timed out, trying next...", error.name);
+                    lastError = error;
+                    // 繼續下一個迴圈嘗試備用代理
+                }
+            }
+            // 如果全部失敗，拋出最後一個錯誤
+            throw lastError || new Error("All proxies failed");
+        }
+
+        async function fetchData() {
+            if (USE_MOCK_DATA) {
+                renderList(mockData);
+                return;
+            }
+
+            if (!GOOGLE_SHEET_CSV_URL) {
+                loadingDiv.innerText = "請設定 CSV 連結";
+                return;
+            }
+
+            try {
+                // 構建目標 URL，加上 timestamp 避免瀏覽器快取
+                const timestamp = Date.now();
+                const connector = GOOGLE_SHEET_CSV_URL.includes('?') ? '&' : '?';
+                const originalUrlWithTime = `${GOOGLE_SHEET_CSV_URL}${connector}t=${timestamp}`;
+                
+                // 使用新的重試與超時機制抓取資料
+                const text = await fetchWithFallback(originalUrlWithTime);
+
+                // 檢查是否抓到錯誤頁面 (HTML)
+                if (text.trim().startsWith("<!DOCTYPE") || text.includes("<html")) {
+                    throw new Error("抓不到 CSV！<br>請確認試算表已執行<br>「檔案>共用>發布到網路」");
+                }
+                
+                const data = parseCSV(text);
+                renderList(data);
+                
+                // 更新時間顯示
+                const now = new Date();
+                timeSpan.innerText = now.toLocaleTimeString();
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                
+                // 顯示錯誤訊息在畫面上
+                if (listContainer.children.length === 0) {
+                    loadingDiv.innerHTML = `
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px;">
+                            ❌ 讀取失敗<br>
+                            <span style='font-size:0.8rem; opacity:0.9; color:#ffdddd;'>
+                                連線不穩，重試中...<br>
+                                (${error.name === 'AbortError' ? '連線超時' : error.message})
+                            </span>
+                        </div>
+                    `;
+                    loadingDiv.style.display = 'block';
+                }
+            }
+        }
+
+        // 升級版 CSV 解析器
+        function parseCSVRow(row) {
+            const result = [];
+            let start = 0;
+            let inQuotes = false;
+            
+            for (let i = 0; i < row.length; i++) {
+                if (row[i] === '"') {
+                    inQuotes = !inQuotes; 
+                } else if (row[i] === ',' && !inQuotes) {
+                    let field = row.substring(start, i).trim();
+                    if (field.startsWith('"') && field.endsWith('"')) {
+                        field = field.substring(1, field.length - 1);
+                    }
+                    result.push(field);
+                    start = i + 1;
+                }
+            }
+            let lastField = row.substring(start).trim();
+            if (lastField.startsWith('"') && lastField.endsWith('"')) {
+                lastField = lastField.substring(1, lastField.length - 1);
+            }
+            result.push(lastField);
+            
+            return result;
+        }
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const result = [];
+
+            // 從第 1 行開始 (跳過標題)
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                const parts = parseCSVRow(line);
+                
+                const nameIndex = 0 + COLUMN_OFFSET;
+                const amountIndex = 1 + COLUMN_OFFSET;
+
+                if (parts.length > amountIndex) {
+                    const name = parts[nameIndex]; 
+                    const rawAmount = parts[amountIndex];
+                    const cleanAmount = rawAmount ? rawAmount.replace(/[$,"]/g, '').trim() : "0";
+                    const amount = parseFloat(cleanAmount);
+
+                    if (name && !isNaN(amount)) {
+                        result.push({ name, amount });
+                    }
+                }
+            }
+
+            // 仍然依照金額多寡進行排序
+            result.sort((a, b) => b.amount - a.amount);
+            return result.slice(0, 10);
+        }
+
+        function renderList(data) {
+            loadingDiv.style.display = 'none';
+            listContainer.innerHTML = '';
+
+            if (data.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-white">目前沒有資料</div>';
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const rank = index + 1;
+                const div = document.createElement('div');
+                
+                let rankClass = '';
+                if (rank === 1) rankClass = 'top-1';
+                else if (rank === 2) rankClass = 'top-2';
+                else if (rank === 3) rankClass = 'top-3';
+
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '👑';
+
+                div.className = `rank-item list-enter ${rankClass}`;
+                div.style.animationDelay = `${index * 0.1}s`;
+
+                // 移除原本顯示金額的 <div class="amount">...</div>
+                div.innerHTML = `
+                    <div class="rank-num">${rankDisplay}</div>
+                    <div class="user-name">${item.name}</div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        fetchData();
+        setInterval(fetchData, REFRESH_INTERVAL);
+
+    </script>
+</body>
+</html>
