@@ -165,8 +165,8 @@
         // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
         const COLUMN_OFFSET = 0;
         
-        // 【新增】每多少元等於一個虛擬物品
-        const DONUT_RATE = 50; 
+        // 【修改】匯率：1元等於5顆甜甜圈 (即 50元 = 250顆甜甜圈)
+        const DONUT_MULTIPLIER = 5; 
 
         // 代理服務列表 (解決 CORS 問題) - 已優化順序並新增備用
         const PROXY_PROVIDERS = [
@@ -347,8 +347,8 @@
                 div.className = `rank-item list-enter ${rankClass}`;
                 div.style.animationDelay = `${index * 0.1}s`;
 
-                // 【修改點】計算甜甜圈數量：金額除以50並無條件捨去小數點
-                const donutCount = Math.floor(item.amount / DONUT_RATE);
+                // 【修改點】計算甜甜圈數量：金額乘上匯率 (1元=5顆，即50元=250顆)
+                const donutCount = Math.floor(item.amount * DONUT_MULTIPLIER);
 
                 // 將顯示的內容改成甜甜圈
                 div.innerHTML = `
