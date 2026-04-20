@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS 抖內榜單 - 可愛橘粉版 (隱藏金額)</title>
+    <title>OBS 抖內榜單 - 可愛橘粉版 (甜甜圈隱私版)</title>
     <!-- 引入字型：M PLUS Rounded 1c (圓體) 與 Noto Sans TC (黑體 - 手機相容性佳) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -108,7 +108,15 @@
             overflow: hidden;
             text-overflow: ellipsis;
             font-size: 1.1rem;
-            text-align: left; /* 確保名字靠左對齊 */
+        }
+
+        .amount {
+            font-weight: 800;
+            color: #ff6b6b;
+            background: #ffe3e3;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.95rem;
         }
 
         /* 進場動畫 */
@@ -130,7 +138,7 @@
 
     <div class="rank-container">
         <div class="header-title">
-            ✨ 感謝大家抖內 ✨
+            ✨ 感謝大家餵食 ✨
         </div>
         <div id="loading" class="text-center text-white font-bold py-4">
             載入中...
@@ -156,6 +164,9 @@
 
         // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
         const COLUMN_OFFSET = 0;
+        
+        // 【新增】每多少元等於一個虛擬物品
+        const DONUT_RATE = 50; 
 
         // 代理服務列表 (解決 CORS 問題) - 已優化順序並新增備用
         const PROXY_PROVIDERS = [
@@ -182,9 +193,8 @@
             for (const createProxyUrl of PROXY_PROVIDERS) {
                 try {
                     const targetUrl = createProxyUrl(originalUrl);
-                    // console.log("Trying proxy:", targetUrl); // Debug 用
                     
-                    // 設定 5 秒超時控制器 (如果 5 秒沒抓到，直接放棄換下一個，避免卡死)
+                    // 設定 5 秒超時控制器
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -201,10 +211,8 @@
                 } catch (error) {
                     console.warn("Proxy failed or timed out, trying next...", error.name);
                     lastError = error;
-                    // 繼續下一個迴圈嘗試備用代理
                 }
             }
-            // 如果全部失敗，拋出最後一個錯誤
             throw lastError || new Error("All proxies failed");
         }
 
@@ -310,7 +318,7 @@
                 }
             }
 
-            // 仍然依照金額多寡進行排序
+            // 排行榜排序依然依據「真實金額」排序
             result.sort((a, b) => b.amount - a.amount);
             return result.slice(0, 10);
         }
@@ -339,10 +347,14 @@
                 div.className = `rank-item list-enter ${rankClass}`;
                 div.style.animationDelay = `${index * 0.1}s`;
 
-                // 移除原本顯示金額的 <div class="amount">...</div>
+                // 【修改點】計算甜甜圈數量：金額除以50並無條件捨去小數點
+                const donutCount = Math.floor(item.amount / DONUT_RATE);
+
+                // 將顯示的內容改成甜甜圈
                 div.innerHTML = `
                     <div class="rank-num">${rankDisplay}</div>
                     <div class="user-name">${item.name}</div>
+                    <div class="amount">${donutCount} 顆甜甜圈 🍩</div>
                 `;
                 listContainer.appendChild(div);
             });
