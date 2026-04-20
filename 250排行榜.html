@@ -350,11 +350,11 @@
                 // 【修改點】計算甜甜圈數量：金額乘上匯率 (1元=5顆，即50元=250顆)
                 const donutCount = Math.floor(item.amount * DONUT_MULTIPLIER);
 
-                // 將顯示的內容改成甜甜圈
+                // 將顯示的內容改成純甜甜圈圖示與數字
                 div.innerHTML = `
                     <div class="rank-num">${rankDisplay}</div>
                     <div class="user-name">${item.name}</div>
-                    <div class="amount">${donutCount} 顆甜甜圈 🍩</div>
+                    <div class="amount">🍩${donutCount}</div>
                 `;
                 listContainer.appendChild(div);
             });
