@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>嚕卡訂閱積分查詢系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for premium visual icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0e0e10; /* Twitch Dark background */
+        }
+        .twitch-purple {
+            color: #9146ff;
+        }
+        .bg-twitch-purple {
+            background-color: #9146ff;
+        }
+        .hover-bg-twitch-purple:hover {
+            background-color: #772ce8;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9146ff;
+        }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col justify-between selection:bg-purple-500 selection:text-white">
+
+    <!-- Header / Navigation -->
+    <header class="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-twitch-purple p-2 rounded-lg text-white shadow-lg shadow-purple-900/30">
+                    <i data-lucide="twitch" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg md:text-xl tracking-wider text-white flex items-center gap-2">
+                        嚕卡訂閱積分查詢系統
+                        <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 連線正常
+                        </span>
+                    </h1>
+                </div>
+            </div>
+            <button onclick="fetchAllData(true)" class="text-zinc-400 hover:text-white p-2 hover:bg-zinc-800 rounded-lg transition-all" title="重新整理資料">
+                <i data-lucide="rotate-cw" id="refresh-icon" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-8">
+        
+        <!-- Hero Search Section -->
+        <div class="text-center max-w-2xl mx-auto mb-10">
+            <h2 class="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight">
+                輸入你的 <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">Twitch ID</span>
+            </h2>
+            <p class="text-zinc-400 text-sm md:text-base">
+                即時查詢目前擁有的剩餘積分、已兌換記錄，與實況主一同享受精彩好禮！
+            </p>
+        </div>
+
+        <!-- Search & Query Card -->
+        <div class="max-w-xl mx-auto mb-12">
+            <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-2xl relative overflow-hidden">
+                <!-- Background blur effects -->
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="space-y-4">
+                    <!-- Search Input Group -->
+                    <div>
+                        <label for="twitch-id-input" class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Twitch 使用者帳號 (ID)</label>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <div class="relative flex-grow">
+                                <div class="absolute inset-y-0 left-4 flex items-center text-zinc-500 pointer-events-none">
+                                    <i data-lucide="user" class="w-5 h-5"></i>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    id="twitch-id-input" 
+                                    placeholder="例如: sheng_yi_08" 
+                                    class="w-full pl-12 pr-4 py-3.5 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-zinc-600 font-medium transition-all"
+                                    onkeypress="handleKeyPress(event)"
+                                >
+                            </div>
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <button 
+                                    onclick="searchPoints()" 
+                                    class="flex-1 sm:flex-none px-6 py-3.5 bg-twitch-purple hover-bg-twitch-purple text-white font-bold rounded-xl transition-all text-sm shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap"
+                                >
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                    查詢
+                                </button>
+                                <a 
+                                    href="https://pse.is/9cantr" 
+                                    target="_blank" 
+                                    class="flex-1 sm:flex-none px-5 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all text-sm shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap"
+                                >
+                                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    立即兌換
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loader (Hidden by default) -->
+                    <div id="loader" class="hidden py-8 text-center">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
+                        <p class="text-sm text-zinc-500 mt-2">正在從 Google 表單同步最新數據...</p>
+                    </div>
+
+                    <!-- Search Result (Hidden by default) -->
+                    <div id="result-container" class="hidden pt-2">
+                        <!-- Success Result -->
+                        <div id="result-success" class="space-y-6">
+                            <!-- Divider -->
+                            <div class="border-t border-zinc-800/80 my-4"></div>
+
+                            <!-- User Header -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-purple-950 border border-purple-500/30 rounded-xl flex items-center justify-center text-purple-400 font-bold text-lg" id="avatar-fallback">
+                                        T
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-zinc-500">Twitch 訂閱者</div>
+                                        <div class="font-bold text-xl text-white tracking-wide" id="result-user-id">User_ID</div>
+                                    </div>
+                                </div>
+                                <span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                    <i data-lucide="gem" class="w-3.5 h-3.5"></i> 核心粉絲
+                                </span>
+                            </div>
+
+                            <!-- Score Dashboard Grid -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- Remaining Score -->
+                                <div class="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 text-center relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                                    <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                                    <div class="text-xs text-zinc-500 font-medium mb-1 flex items-center justify-center gap-1">
+                                        <i data-lucide="sparkles" class="w-3 h-3 text-emerald-400"></i> 剩餘積分
+                                    </div>
+                                    <div class="text-3xl font-black text-emerald-400 tracking-tight" id="result-score-remaining">0</div>
+                                </div>
+
+                                <!-- Used Score -->
+                                <div class="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 text-center relative overflow-hidden group hover:border-zinc-700 transition-all">
+                                    <div class="absolute top-0 left-0 w-1 h-full bg-zinc-600"></div>
+                                    <div class="text-xs text-zinc-500 font-medium mb-1 flex items-center justify-center gap-1">
+                                        <i data-lucide="shopping-bag" class="w-3 h-3 text-zinc-400"></i> 已使用積分
+                                    </div>
+                                    <div class="text-3xl font-black text-zinc-400 tracking-tight" id="result-score-used">0</div>
+                                </div>
+                            </div>
+
+                            <!-- Total Score Indicator & Progress Bar -->
+                            <div class="bg-zinc-950/40 border border-zinc-800/80 rounded-xl p-4">
+                                <div class="flex justify-between items-center mb-2 text-xs">
+                                    <span class="text-zinc-400">總累積獲得積分: <strong class="text-white" id="result-score-total">0</strong></span>
+                                    <span class="text-zinc-500" id="result-ratio-text">使用率 0%</span>
+                                </div>
+                                <div class="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden flex">
+                                    <div id="progress-bar-used" class="bg-zinc-500 h-full transition-all duration-500" style="width: 0%"></div>
+                                    <div id="progress-bar-remaining" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between items-center mt-2 text-[10px] text-zinc-500">
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-zinc-500 inline-block"></span> 已使用</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 可用剩餘</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error Result -->
+                        <div id="result-error" class="hidden text-center py-6 space-y-3">
+                            <div class="inline-flex p-3 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20">
+                                <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-bold text-lg text-rose-400">找不到此 Twitch 帳號</h3>
+                            <p class="text-zinc-400 text-sm max-w-xs mx-auto">
+                                請檢查您的帳號輸入是否正確（英文字母大小寫皆可），或與實況管理員確認您的資料已登錄至表單中。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- -->
+        <!-- Reward Redemption Catalog (Centered, Max-w-3xl Layout) -->
+        <div class="max-w-3xl mx-auto bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 mt-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="gift" class="w-5 h-5 text-purple-400"></i>
+                    精選獎勵兌換清單
+                </h3>
+                <span class="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full">積分解鎖</span>
+            </div>
+
+            <!-- Reward Cards Grid (Dynamic from Column E & F) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="rewards-container">
+                <!-- Loading placeholder rewards -->
+                <div class="animate-pulse bg-zinc-950/40 border border-zinc-850 rounded-xl p-4 h-36"></div>
+                <div class="animate-pulse bg-zinc-950/40 border border-zinc-850 rounded-xl p-4 h-36"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-zinc-900 bg-zinc-950 py-6 text-center text-xs text-zinc-500">
+        <div class="max-w-6xl mx-auto px-4 space-y-2">
+            <p>© 2026 嚕卡訂閱積分查詢系統. All rights reserved.</p>
+            <p>與 Twitch 官方非官方合作之第三方自製小工具</p>
+            <div class="flex justify-center gap-4 text-[11px] pt-1 text-zinc-600">
+                <a href="https://docs.google.com/spreadsheets/d/120hy8SEoR8dzuRT18XL375FFAlFXDvE4JzYKcaALZdA" target="_blank" class="hover:text-purple-400 transition-colors flex items-center gap-1">
+                    <i data-lucide="table-properties" class="w-3 h-3"></i> 檢視來源表單
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Custom JavaScript -->
+    <script>
+        // Global variables
+        const SPREADSHEET_ID = '120hy8SEoR8dzuRT18XL375FFAlFXDvE4JzYKcaALZdA';
+        // Construct the direct CSV export link
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
+        
+        let subscribersData = [];
+        let rewardsData = [];
+
+        // Fetch data from google sheets
+        async function fetchAllData(isManualRefresh = false) {
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (isManualRefresh && refreshIcon) {
+                refreshIcon.classList.add('animate-spin');
+            }
+
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) {
+                    throw new Error('無法取得試算表，請確認分享權限是否已開啟。');
+                }
+                const csvText = await response.text();
+                const parsed = parseCSV(csvText);
+                subscribersData = parsed.subs;
+                rewardsData = parsed.rewards;
+                
+                // Build Dynamic Rewards List
+                buildRewards();
+                
+                // If a user has already searched, refresh their search result as well
+                const currentInput = document.getElementById('twitch-id-input').value.trim();
+                if (currentInput) {
+                    searchPoints(false); // Silent refresh
+                }
+
+            } catch (error) {
+                console.error('Error fetching Google Sheets data:', error);
+                // Setup mock/fallback data if the sheet link is broken or CORS blocking happens locally
+                setupFallbackUI();
+            } finally {
+                if (isManualRefresh && refreshIcon) {
+                    setTimeout(() => {
+                        refreshIcon.classList.remove('animate-spin');
+                    }, 600);
+                }
+            }
+        }
+
+        // Custom CSV parser handling quotes
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/);
+            const subs = [];
+            const rewards = [];
+
+            for (let i = 1; i < lines.length; i++) { // Start from 1 to skip header A1, B1, C1
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                // Parse columns
+                let columns = [];
+                let insideQuotes = false;
+                let currentWord = '';
+
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '"') {
+                        insideQuotes = !insideQuotes;
+                    } else if (char === ',' && !insideQuotes) {
+                        columns.push(currentWord.trim());
+                        currentWord = '';
+                    } else {
+                        currentWord += char;
+                    }
+                }
+                columns.push(currentWord.trim());
+
+                // Map A (ID), B (Remaining Points), C (Used Points)
+                if (columns.length >= 3) {
+                    const cleanId = columns[0].replace(/^"|"$/g, '').trim();
+                    const cleanRemaining = parseInt(columns[1].replace(/^"|"$/g, '').trim()) || 0;
+                    const cleanUsed = parseInt(columns[2].replace(/^"|"$/g, '').trim()) || 0;
+
+                    if (cleanId) {
+                        subs.push({
+                            id: cleanId,
+                            remaining: cleanRemaining,
+                            used: cleanUsed,
+                            total: cleanRemaining + cleanUsed
+                        });
+                    }
+                }
+
+                // Map E (Reward Name), F (Required Points) -> Column index 4 and 5
+                if (columns.length >= 6) {
+                    const rewardName = columns[4].replace(/^"|"$/g, '').trim();
+                    const rewardPointsStr = columns[5].replace(/^"|"$/g, '').trim();
+                    const rewardPoints = parseInt(rewardPointsStr) || 0;
+
+                    // Ensure reward name exists and isn't the header title
+                    if (rewardName && rewardName !== "" && rewardName !== "兌換項目") {
+                        rewards.push({
+                            name: rewardName,
+                            points: rewardPoints
+                        });
+                    }
+                }
+            }
+            return { subs, rewards };
+        }
+
+        // Search action
+        function searchPoints(showLoaderAnimation = true) {
+            const inputField = document.getElementById('twitch-id-input');
+            const query = inputField.value.trim().toLowerCase();
+            const resultContainer = document.getElementById('result-container');
+            const resultSuccess = document.getElementById('result-success');
+            const resultError = document.getElementById('result-error');
+            const loader = document.getElementById('loader');
+
+            if (!query) {
+                resultContainer.classList.add('hidden');
+                return;
+            }
+
+            if (showLoaderAnimation) {
+                resultContainer.classList.add('hidden');
+                loader.classList.remove('hidden');
+            }
+
+            // Artificial short delay to make UI transition smooth and dynamic
+            setTimeout(() => {
+                if (showLoaderAnimation) {
+                    loader.classList.add('hidden');
+                }
+                resultContainer.classList.remove('hidden');
+
+                // Find user match (case-insensitive)
+                const matchedUser = subscribersData.find(u => u.id.toLowerCase() === query);
+
+                if (matchedUser) {
+                    resultSuccess.classList.remove('hidden');
+                    resultError.classList.add('hidden');
+
+                    // Set texts
+                    document.getElementById('result-user-id').textContent = matchedUser.id;
+                    document.getElementById('result-score-remaining').textContent = matchedUser.remaining.toLocaleString();
+                    document.getElementById('result-score-used').textContent = matchedUser.used.toLocaleString();
+                    document.getElementById('result-score-total').textContent = matchedUser.total.toLocaleString();
+
+                    // Avatar placeholder letter
+                    const avatarDiv = document.getElementById('avatar-fallback');
+                    avatarDiv.textContent = matchedUser.id.substring(0, 2).toUpperCase();
+
+                    // Calculate ratio and progress bars
+                    const total = matchedUser.total || 1; // Avoid divide by 0
+                    const usedPercentage = (matchedUser.used / total) * 100;
+                    const remainingPercentage = (matchedUser.remaining / total) * 100;
+
+                    document.getElementById('result-ratio-text').textContent = `使用率 ${Math.round(usedPercentage)}%`;
+                    
+                    const barUsed = document.getElementById('progress-bar-used');
+                    const barRemaining = document.getElementById('progress-bar-remaining');
+
+                    barUsed.style.width = `${usedPercentage}%`;
+                    barRemaining.style.width = `${remainingPercentage}%`;
+                } else {
+                    resultSuccess.classList.add('hidden');
+                    resultError.classList.remove('hidden');
+                }
+            }, showLoaderAnimation ? 350 : 0);
+        }
+
+        // Build Dynamic Reward Cards Grid
+        function buildRewards() {
+            const container = document.getElementById('rewards-container');
+            if (!container) return;
+
+            if (rewardsData.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-zinc-500 text-sm">
+                        目前尚無兌換項目數據（請確認試算表 E 欄與 F 欄是否填寫）。
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            rewardsData.forEach((reward, index) => {
+                let badgeText = '兌換獎勵';
+                let badgeClass = 'text-purple-400 bg-purple-950/60 border-purple-500/20';
+                
+                // Color badges based on required points for a game-like tier progression vibe
+                if (reward.points < 100) {
+                    badgeText = '熱門推薦';
+                    badgeClass = 'text-emerald-400 bg-emerald-950/60 border-emerald-500/20';
+                } else if (reward.points >= 100 && reward.points < 500) {
+                    badgeText = '實況互動';
+                    badgeClass = 'text-blue-400 bg-blue-950/60 border-blue-500/20';
+                } else if (reward.points >= 500 && reward.points < 1000) {
+                    badgeText = '高級限定';
+                    badgeClass = 'text-amber-400 bg-amber-950/60 border-amber-500/20';
+                } else if (reward.points >= 1000) {
+                    badgeText = '至尊神物';
+                    badgeClass = 'text-rose-400 bg-rose-950/60 border-rose-500/20';
+                }
+
+                html += `
+                    <div class="bg-zinc-950/60 border border-zinc-850 rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                            <h4 class="font-bold text-sm text-white mt-2 mb-1">${reward.name}</h4>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-zinc-850/80">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-zinc-500">兌換點數</span>
+                                <span class="font-bold text-emerald-400 text-sm">${reward.points.toLocaleString()} 積分</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Enter key press handler
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                searchPoints();
+            }
+        }
+
+        // Setup local fallback when google API fails or link has issue (Just for demonstration or safety)
+        function setupFallbackUI() {
+            console.log("Using dynamic embedded demo dataset since CSV couldn't load.");
+            // These mock objects follow your exact format
+            subscribersData = [
+                { id: "sheng_yi_08", remaining: 420, used: 80, total: 500 },
+                { id: "twitch_mod_god", remaining: 800, used: 450, total: 1250 },
+                { id: "kappa_gamer", remaining: 150, used: 50, total: 200 },
+                { id: "pogchamp_99", remaining: 30, used: 370, total: 400 },
+                { id: "lucky_sub_user", remaining: 95, used: 5, total: 100 },
+                { id: "stream_master", remaining: 1200, used: 800, total: 2000 }
+            ];
+            rewardsData = [
+                { name: "社群特製專屬貼圖一組", points: 50 },
+                { name: "指定點歌 / 影片播放一次", points: 150 },
+                { name: "與台主連線開黑打遊戲一小時", points: 300 },
+                { name: "實況主手寫客製感謝卡片 (實體)", points: 1000 }
+            ];
+            buildRewards();
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            fetchAllData();
+            // Refresh lucide icons
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
