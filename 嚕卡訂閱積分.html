@@ -202,8 +202,7 @@
             </div>
         </div>
 
-        <!-- -->
-        <!-- Reward Redemption Catalog (Centered, Max-w-3xl Layout) -->
+        <!-- Reward Redemption Catalog -->
         <div class="max-w-3xl mx-auto bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 mt-4">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="font-bold text-lg flex items-center gap-2">
@@ -213,15 +212,31 @@
                 <span class="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full">積分解鎖</span>
             </div>
 
-            <!-- Reward Cards Grid (Dynamic from Column E & F) -->
+            <!-- Reward Cards Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="rewards-container">
-                <!-- Loading placeholder rewards -->
+                <!-- Dynamic reward items inserted here -->
                 <div class="animate-pulse bg-zinc-950/40 border border-zinc-850 rounded-xl p-4 h-36"></div>
                 <div class="animate-pulse bg-zinc-950/40 border border-zinc-850 rounded-xl p-4 h-36"></div>
             </div>
         </div>
 
     </main>
+
+    <!-- Image Lightbox Modal -->
+    <div id="image-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all" onclick="closeImageModal()">
+        <div class="relative max-w-4xl max-h-[90vh] bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center p-3 sm:p-5" onclick="event.stopPropagation()">
+            <!-- Close Button -->
+            <button onclick="closeImageModal()" class="absolute top-3 right-3 text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 p-2 rounded-full z-10 transition-colors" title="關閉">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <!-- Modal Title -->
+            <h4 id="modal-image-title" class="text-sm sm:text-base font-bold text-white mb-3 px-8 text-center truncate max-w-full"></h4>
+            <!-- Modal Image Container -->
+            <div class="overflow-auto max-h-[75vh] w-full flex items-center justify-center rounded-xl bg-zinc-950 p-2 border border-zinc-800/50">
+                <img id="modal-image-src" src="" alt="獎勵大圖" class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg">
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="border-t border-zinc-900 bg-zinc-950 py-6 text-center text-xs text-zinc-500">
@@ -235,62 +250,52 @@
     <script>
         // Global variables
         const SPREADSHEET_ID = '120hy8SEoR8dzuRT18XL375FFAlFXDvE4JzYKcaALZdA';
-        // Construct the direct CSV export link
         const CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
         
         let subscribersData = [];
         let rewardsData = [];
 
-        // Fetch data from google sheets
-        async function fetchAllData(isManualRefresh = false) {
-            const refreshIcon = document.getElementById('refresh-icon');
-            if (isManualRefresh && refreshIcon) {
-                refreshIcon.classList.add('animate-spin');
-            }
-
-            try {
-                const response = await fetch(CSV_URL);
-                if (!response.ok) {
-                    throw new Error('無法取得試算表，請確認分享權限是否已開啟。');
-                }
-                const csvText = await response.text();
-                const parsed = parseCSV(csvText);
-                subscribersData = parsed.subs;
-                rewardsData = parsed.rewards;
-                
-                // Build Dynamic Rewards List
-                buildRewards();
-                
-                // If a user has already searched, refresh their search result as well
-                const currentInput = document.getElementById('twitch-id-input').value.trim();
-                if (currentInput) {
-                    searchPoints(false); // Silent refresh
-                }
-
-            } catch (error) {
-                console.error('Error fetching Google Sheets data:', error);
-                // Setup mock/fallback data if the sheet link is broken or CORS blocking happens locally
-                setupFallbackUI();
-            } finally {
-                if (isManualRefresh && refreshIcon) {
-                    setTimeout(() => {
-                        refreshIcon.classList.remove('animate-spin');
-                    }, 600);
+        // Intelligent URL extractor & converter for Google Sheets images
+        function cleanImageUrl(rawStr) {
+            if (!rawStr) return '';
+            
+            let cleaned = rawStr.replace(/^"|"$/g, '').trim();
+            
+            // Extract http/https URL if embedded in =IMAGE("...") formula or text
+            const match = cleaned.match(/https?:\/\/[^\s"'<>()]+/i);
+            if (!match) return '';
+            
+            let url = match[0];
+            
+            // Handle Google Drive Share Links
+            if (url.includes('drive.google.com')) {
+                const idMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/[?&]id=([^&]+)/);
+                if (idMatch && idMatch[1]) {
+                    return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
                 }
             }
+            
+            // Handle Imgur Page Links
+            if (url.includes('imgur.com') && !url.includes('i.imgur.com')) {
+                const imgurMatch = url.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+                if (imgurMatch && imgurMatch[1]) {
+                    return `https://i.imgur.com/${imgurMatch[1]}.png`;
+                }
+            }
+            
+            return url;
         }
 
-        // Custom CSV parser handling quotes
+        // Custom CSV parser handling quotes safely and multi-column mapping
         function parseCSV(text) {
             const lines = text.split(/\r?\n/);
             const subs = [];
             const rewards = [];
 
-            for (let i = 1; i < lines.length; i++) { // Start from 1 to skip header A1, B1, C1
+            for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
 
-                // Parse columns
                 let columns = [];
                 let insideQuotes = false;
                 let currentWord = '';
@@ -314,7 +319,7 @@
                     const cleanRemaining = parseInt(columns[1].replace(/^"|"$/g, '').trim()) || 0;
                     const cleanUsed = parseInt(columns[2].replace(/^"|"$/g, '').trim()) || 0;
 
-                    if (cleanId) {
+                    if (cleanId && !['ID', '帳號', 'TWITCH ID', '使用者帳號'].includes(cleanId.toUpperCase())) {
                         subs.push({
                             id: cleanId,
                             remaining: cleanRemaining,
@@ -324,25 +329,188 @@
                     }
                 }
 
-                // Map E (Reward Name), F (Required Points) -> Column index 4 and 5
-                if (columns.length >= 6) {
-                    const rewardName = columns[4].replace(/^"|"$/g, '').trim();
-                    const rewardPointsStr = columns[5].replace(/^"|"$/g, '').trim();
-                    const rewardPoints = parseInt(rewardPointsStr) || 0;
+                // Map E (Reward Name), F (Required Points), G (Image URL)
+                let rewardName = '';
+                let rewardPoints = 0;
+                let rawImg = '';
 
-                    // Ensure reward name exists and isn't the header title
-                    if (rewardName && rewardName !== "" && rewardName !== "兌換項目") {
-                        rewards.push({
-                            name: rewardName,
-                            points: rewardPoints
-                        });
+                if (columns.length >= 5) {
+                    rewardName = columns[4] ? columns[4].replace(/^"|"$/g, '').trim() : '';
+                    rewardPoints = parseInt(columns[5] ? columns[5].replace(/^"|"$/g, '').trim() : '0') || 0;
+                    rawImg = columns[6] || '';
+                }
+
+                // Fallback if Column D was deleted in sheet
+                if (!rewardName && columns.length >= 4) {
+                    const altName = columns[3] ? columns[3].replace(/^"|"$/g, '').trim() : '';
+                    if (altName && isNaN(altName) && !['兌換項目', '獎勵名稱', 'ID', '帳號'].includes(altName.toUpperCase())) {
+                        rewardName = altName;
+                        rewardPoints = parseInt(columns[4] ? columns[4].replace(/^"|"$/g, '').trim() : '0') || 0;
+                        rawImg = columns[5] || '';
                     }
+                }
+
+                // Validate and save reward
+                const cleanNameUpper = rewardName.toUpperCase();
+                if (rewardName && !['兌換項目', '獎勵名稱', 'REWARD', 'NAME'].includes(cleanNameUpper)) {
+                    const imgUrl = cleanImageUrl(rawImg);
+                    rewards.push({
+                        name: rewardName,
+                        points: rewardPoints,
+                        image: imgUrl
+                    });
                 }
             }
             return { subs, rewards };
         }
 
-        // Search action
+        // Fetch all data from Google Sheets
+        async function fetchAllData(isManualRefresh = false) {
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (isManualRefresh && refreshIcon) {
+                refreshIcon.classList.add('animate-spin');
+            }
+
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) {
+                    throw new Error('無法取得試算表，請確認分享權限是否已開啟。');
+                }
+                const csvText = await response.text();
+                const parsed = parseCSV(csvText);
+                
+                subscribersData = parsed.subs;
+                rewardsData = parsed.rewards;
+
+                buildRewards();
+
+                // Re-trigger current search silently if user already typed a query
+                const currentInput = document.getElementById('twitch-id-input').value.trim();
+                if (currentInput) {
+                    searchPoints(false);
+                }
+
+            } catch (error) {
+                console.error('Error fetching Google Sheets data:', error);
+                setupFallbackUI();
+            } finally {
+                if (isManualRefresh && refreshIcon) {
+                    setTimeout(() => {
+                        refreshIcon.classList.remove('animate-spin');
+                    }, 600);
+                }
+            }
+        }
+
+        // Build Dynamic Reward Cards Grid
+        function buildRewards() {
+            const container = document.getElementById('rewards-container');
+            if (!container) return;
+
+            if (rewardsData.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-zinc-500 text-sm">
+                        目前尚無兌換項目數據（請確認試算表 E 欄與 F 欄是否填寫）。
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            rewardsData.forEach((reward) => {
+                let badgeText = '兌換獎勵';
+                let badgeClass = 'text-purple-400 bg-purple-950/60 border-purple-500/20';
+                
+                if (reward.points < 100) {
+                    badgeText = '熱門推薦';
+                    badgeClass = 'text-emerald-400 bg-emerald-950/60 border-emerald-500/20';
+                } else if (reward.points >= 100 && reward.points < 500) {
+                    badgeText = '實況互動';
+                    badgeClass = 'text-blue-400 bg-blue-950/60 border-blue-500/20';
+                } else if (reward.points >= 500 && reward.points < 1000) {
+                    badgeText = '高級限定';
+                    badgeClass = 'text-amber-400 bg-amber-950/60 border-amber-500/20';
+                } else if (reward.points >= 1000) {
+                    badgeText = '至尊神物';
+                    badgeClass = 'text-rose-400 bg-rose-950/60 border-rose-500/20';
+                }
+
+                const safeImage = reward.image ? reward.image.replace(/'/g, "\\'") : '';
+                const safeName = reward.name ? reward.name.replace(/'/g, "\\'") : '';
+
+                let imageBlock = '';
+                if (reward.image) {
+                    imageBlock = `
+                        <div class="w-full h-40 mb-3 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-800/80 relative group/img cursor-pointer" onclick="openImageModal('${safeImage}', '${safeName}')">
+                            <img src="${reward.image}" 
+                                 alt="${reward.name}" 
+                                 class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" 
+                                 onerror="this.parentElement.style.display='none'">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <span class="bg-zinc-900/90 text-xs px-3 py-1.5 rounded-full border border-zinc-700 flex items-center gap-1.5 backdrop-blur-sm shadow-lg font-medium">
+                                    <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> 點擊放大
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="bg-zinc-950/60 border border-zinc-850 rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                            ${imageBlock}
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                            <h4 class="font-bold text-sm text-white mt-2 mb-1">${reward.name}</h4>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-zinc-850/80">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-zinc-500">兌換點數</span>
+                                <span class="font-bold text-emerald-400 text-sm">${reward.points.toLocaleString()} 積分</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function openImageModal(imgSrc, title) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-image-src');
+            const modalTitle = document.getElementById('modal-image-title');
+            
+            if (!modal || !modalImg) return;
+
+            modalImg.src = imgSrc;
+            if (modalTitle) modalTitle.textContent = title || '獎勵圖片';
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            if (!modal) return;
+            
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
         function searchPoints(showLoaderAnimation = true) {
             const inputField = document.getElementById('twitch-id-input');
             const query = inputField.value.trim().toLowerCase();
@@ -361,34 +529,28 @@
                 loader.classList.remove('hidden');
             }
 
-            // Artificial short delay to make UI transition smooth and dynamic
             setTimeout(() => {
                 if (showLoaderAnimation) {
                     loader.classList.add('hidden');
                 }
                 resultContainer.classList.remove('hidden');
 
-                // Find user match (case-insensitive)
                 const matchedUser = subscribersData.find(u => u.id.toLowerCase() === query);
 
                 if (matchedUser) {
                     resultSuccess.classList.remove('hidden');
                     resultError.classList.add('hidden');
 
-                    // Set texts
                     document.getElementById('result-user-id').textContent = matchedUser.id;
                     document.getElementById('result-score-remaining').textContent = matchedUser.remaining.toLocaleString();
                     document.getElementById('result-score-used').textContent = matchedUser.used.toLocaleString();
                     document.getElementById('result-score-total').textContent = matchedUser.total.toLocaleString();
 
-                    // Avatar placeholder letter
                     const avatarDiv = document.getElementById('avatar-fallback');
                     avatarDiv.textContent = matchedUser.id.substring(0, 2).toUpperCase();
 
-                    // Calculate ratio and progress bars
-                    const total = matchedUser.total || 1; // Avoid divide by 0
+                    const total = matchedUser.total || 1;
                     const usedPercentage = (matchedUser.used / total) * 100;
-                    const remainingPercentage = (matchedUser.remaining / total) * 100;
 
                     document.getElementById('result-ratio-text').textContent = `使用率 ${Math.round(usedPercentage)}%`;
                     
@@ -396,102 +558,43 @@
                     const barRemaining = document.getElementById('progress-bar-remaining');
 
                     barUsed.style.width = `${usedPercentage}%`;
-                    barRemaining.style.width = `${remainingPercentage}%`;
+                    barRemaining.style.width = `${(matchedUser.remaining / total) * 100}%`;
                 } else {
                     resultSuccess.classList.add('hidden');
                     resultError.classList.remove('hidden');
                 }
-            }, showLoaderAnimation ? 350 : 0);
+            }, showLoaderAnimation ? 300 : 0);
         }
 
-        // Build Dynamic Reward Cards Grid
-        function buildRewards() {
-            const container = document.getElementById('rewards-container');
-            if (!container) return;
-
-            if (rewardsData.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-12 text-zinc-500 text-sm">
-                        目前尚無兌換項目數據（請確認試算表 E 欄與 F 欄是否填寫）。
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '';
-            rewardsData.forEach((reward, index) => {
-                let badgeText = '兌換獎勵';
-                let badgeClass = 'text-purple-400 bg-purple-950/60 border-purple-500/20';
-                
-                // Color badges based on required points for a game-like tier progression vibe
-                if (reward.points < 100) {
-                    badgeText = '熱門推薦';
-                    badgeClass = 'text-emerald-400 bg-emerald-950/60 border-emerald-500/20';
-                } else if (reward.points >= 100 && reward.points < 500) {
-                    badgeText = '實況互動';
-                    badgeClass = 'text-blue-400 bg-blue-950/60 border-blue-500/20';
-                } else if (reward.points >= 500 && reward.points < 1000) {
-                    badgeText = '高級限定';
-                    badgeClass = 'text-amber-400 bg-amber-950/60 border-amber-500/20';
-                } else if (reward.points >= 1000) {
-                    badgeText = '至尊神物';
-                    badgeClass = 'text-rose-400 bg-rose-950/60 border-rose-500/20';
-                }
-
-                html += `
-                    <div class="bg-zinc-950/60 border border-zinc-850 rounded-xl p-4 flex flex-col justify-between">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${badgeClass}">
-                                ${badgeText}
-                            </span>
-                            <h4 class="font-bold text-sm text-white mt-2 mb-1">${reward.name}</h4>
-                        </div>
-                        <div class="mt-4 pt-3 border-t border-zinc-850/80">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs text-zinc-500">兌換點數</span>
-                                <span class="font-bold text-emerald-400 text-sm">${reward.points.toLocaleString()} 積分</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-        }
-
-        // Enter key press handler
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
                 searchPoints();
             }
         }
 
-        // Setup local fallback when google API fails or link has issue (Just for demonstration or safety)
         function setupFallbackUI() {
-            console.log("Using dynamic embedded demo dataset since CSV couldn't load.");
-            // These mock objects follow your exact format
+            console.log("Using dynamic embedded fallback dataset.");
             subscribersData = [
                 { id: "sheng_yi_08", remaining: 420, used: 80, total: 500 },
                 { id: "twitch_mod_god", remaining: 800, used: 450, total: 1250 },
                 { id: "kappa_gamer", remaining: 150, used: 50, total: 200 },
                 { id: "pogchamp_99", remaining: 30, used: 370, total: 400 },
-                { id: "lucky_sub_user", remaining: 95, used: 5, total: 100 },
-                { id: "stream_master", remaining: 1200, used: 800, total: 2000 }
+                { id: "lucky_sub_user", remaining: 95, used: 5, total: 100 }
             ];
             rewardsData = [
-                { name: "社群特製專屬貼圖一組", points: 50 },
-                { name: "指定點歌 / 影片播放一次", points: 150 },
-                { name: "與台主連線開黑打遊戲一小時", points: 300 },
-                { name: "實況主手寫客製感謝卡片 (實體)", points: 1000 }
+                { name: "社群特製專屬貼圖一組", points: 50, image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=60" },
+                { name: "指定點歌 / 影片播放一次", points: 150, image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60" },
+                { name: "與台主連線開黑打遊戲一小時", points: 300, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&auto=format&fit=crop&q=60" },
+                { name: "實況主手寫客製感謝卡片 (實體)", points: 1000, image: "https://images.unsplash.com/photo-1579202673506-ca3ce28943ef?w=500&auto=format&fit=crop&q=60" }
             ];
             buildRewards();
         }
 
-        // Initialize on page load
         window.onload = function() {
             fetchAllData();
-            // Refresh lucide icons
-            lucide.createIcons();
+            if (window.lucide) {
+                lucide.createIcons();
+            }
         };
     </script>
 </body>
