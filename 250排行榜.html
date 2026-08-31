@@ -141,7 +141,7 @@
             ✨ 感謝大家餵食 ✨
         </div>
         <div id="loading" class="text-center text-white font-bold py-4">
-            載入中...
+            資料載入中...
         </div>
         <div id="rank-list">
             <!-- JS 會將列表插入這裡 -->
@@ -162,17 +162,18 @@
         // 更新頻率：20000 毫秒 (20秒)
         const REFRESH_INTERVAL = 20000;
 
-        // 資料欄位偏移量 (視您的 CSV 結構而定，通常不用改)
+        // 資料欄位偏移量
         const COLUMN_OFFSET = 0;
         
-        // 【修改】匯率：1元等於5顆甜甜圈 (即 50元 = 250顆甜甜圈)
+        // 匯率：1元等於5顆甜甜圈 (即 50元 = 250顆甜甜圈)
         const DONUT_MULTIPLIER = 5; 
 
-        // 代理服務列表 (解決 CORS 問題) - 已優化順序並新增備用
+        // 升級版代理策略：優先嘗試直接連線，若失敗才用代理
         const PROXY_PROVIDERS = [
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            (url) => url, // 第一優先：直接連線 (目前 Google Sheet 許多情況下允許直接 CORS 抓取)
             (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` // 新增的備用代理
+            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}` // 最近不穩定，放到最後
         ];
 
         // =========================================
@@ -193,10 +194,11 @@
             for (const createProxyUrl of PROXY_PROVIDERS) {
                 try {
                     const targetUrl = createProxyUrl(originalUrl);
+                    // console.log("Trying:", targetUrl); // Debug
                     
-                    // 設定 5 秒超時控制器
+                    // 設定 8 秒超時控制器 (OBS 環境有時較慢，放寬時間)
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                     const response = await fetch(targetUrl, { signal: controller.signal });
                     
@@ -204,16 +206,16 @@
                     clearTimeout(timeoutId);
                     
                     if (!response.ok) {
-                        throw new Error(`Status ${response.status}`);
+                        throw new Error(`伺服器狀態碼 ${response.status}`);
                     }
                     
                     return await response.text(); // 成功取得資料直接返回
                 } catch (error) {
-                    console.warn("Proxy failed or timed out, trying next...", error.name);
+                    // console.warn("連線失敗或超時，嘗試下一個...", error.message);
                     lastError = error;
                 }
             }
-            throw lastError || new Error("All proxies failed");
+            throw lastError || new Error("所有連線通道皆失敗，請稍後再試");
         }
 
         async function fetchData() {
@@ -233,12 +235,12 @@
                 const connector = GOOGLE_SHEET_CSV_URL.includes('?') ? '&' : '?';
                 const originalUrlWithTime = `${GOOGLE_SHEET_CSV_URL}${connector}t=${timestamp}`;
                 
-                // 使用新的重試與超時機制抓取資料
+                // 使用升級版的連線策略
                 const text = await fetchWithFallback(originalUrlWithTime);
 
                 // 檢查是否抓到錯誤頁面 (HTML)
                 if (text.trim().startsWith("<!DOCTYPE") || text.includes("<html")) {
-                    throw new Error("抓不到 CSV！<br>請確認試算表已執行<br>「檔案>共用>發布到網路」");
+                    throw new Error("抓不到資料，請確認 Google Sheet 已「發布到網路」");
                 }
                 
                 const data = parseCSV(text);
@@ -251,13 +253,13 @@
             } catch (error) {
                 console.error("Error fetching data:", error);
                 
-                // 顯示錯誤訊息在畫面上
+                // 若列表是空的才顯示錯誤，如果已經有資料了就默默重試就好(避免影響直播畫面)
                 if (listContainer.children.length === 0) {
                     loadingDiv.innerHTML = `
                         <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px;">
                             ❌ 讀取失敗<br>
                             <span style='font-size:0.8rem; opacity:0.9; color:#ffdddd;'>
-                                連線不穩，重試中...<br>
+                                網路不穩或代理伺服器忙碌中...<br>
                                 (${error.name === 'AbortError' ? '連線超時' : error.message})
                             </span>
                         </div>
@@ -347,7 +349,7 @@
                 div.className = `rank-item list-enter ${rankClass}`;
                 div.style.animationDelay = `${index * 0.1}s`;
 
-                // 【修改點】計算甜甜圈數量：金額乘上匯率 (1元=5顆，即50元=250顆)
+                // 計算甜甜圈數量：金額乘上匯率 (1元=5顆，即50元=250顆)
                 const donutCount = Math.floor(item.amount * DONUT_MULTIPLIER);
 
                 // 將顯示的內容改成純甜甜圈圖示與數字
